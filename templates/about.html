@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Havo Sifati — Loyiha Haqida</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">🌬️ <span>Havo Sifati</span> Monitoringi</div>
+  <div class="nav-links">
+    <a href="/"        class="nav-link">Asosiy</a>
+    <a href="/history" class="nav-link">Tarix</a>
+    <a href="/about"   class="nav-link">Haqida</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- Loyiha tavsifi -->
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+      <div style="font-size:3.5rem;line-height:1">🌬️</div>
+      <div>
+        <h1 style="font-size:1.4rem;font-weight:800;margin-bottom:0.4rem">
+          Havo Sifatining Bashoratli Monitoringi uchun<br>Aqlli Qurilma va Dasturiy Ta'minot
+        </h1>
+        <p style="color:var(--kulrang);font-size:0.9rem;line-height:1.7">
+          Ushbu tizim ESP32 mikrokontroller va MQ seriyali sensorlar yordamida havo sifatini
+          real vaqt rejimida kuzatadi, AQI (Havo Sifati Indeksi) ni hisoblaydi va kelajakda
+          LSTM neyron tarmog'i yordamida bashorat qiladi. Foydalanuvchilar smartfon, planshet
+          yoki kompyuter orqali holat haqida tezkor ma'lumot olishi mumkin.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Texnologiyalar -->
+  <div style="margin-bottom:1rem">
+    <div class="card-header" style="margin-bottom:0.75rem;padding:0 0.25rem">⚙️ Ishlatilgan Texnologiyalar</div>
+    <div class="sensor-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+
+      <div class="card" style="border-color:var(--ko-k)30">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">🐍</div>
+        <div style="font-weight:700">Python 3.14</div>
+        <div style="font-size:0.78rem;color:var(--kulrang);margin-top:0.25rem">Asosiy dasturlash tili</div>
+      </div>
+
+      <div class="card" style="border-color:var(--yashil)30">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">⚡</div>
+        <div style="font-weight:700">FastAPI</div>
+        <div style="font-size:0.78rem;color:var(--kulrang);margin-top:0.25rem">Yuqori tezlikli web framework</div>
+      </div>
+
+      <div class="card" style="border-color:var(--sariq)30">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">🗄️</div>
+        <div style="font-weight:700">SQLite</div>
+        <div style="font-size:0.78rem;color:var(--kulrang);margin-top:0.25rem">Mahalliy ma'lumotlar bazasi</div>
+      </div>
+
+      <div class="card" style="border-color:var(--toqsariq)30">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">📊</div>
+        <div style="font-weight:700">Chart.js</div>
+        <div style="font-size:0.78rem;color:var(--kulrang);margin-top:0.25rem">Interaktiv grafiklar</div>
+      </div>
+
+      <div class="card" style="border-color:var(--binafsha)30">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">🤖</div>
+        <div style="font-weight:700">ESP32 (Arduino)</div>
+        <div style="font-size:0.78rem;color:var(--kulrang);margin-top:0.25rem">Wi-Fi mikrokontroller</div>
+      </div>
+
+      <div class="card" style="border-color:var(--qizil)30">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem">🧠</div>
+        <div style="font-weight:700">LSTM (Kelajak)</div>
+        <div style="font-size:0.78rem;color:var(--kulrang);margin-top:0.25rem">Neyron tarmoq bashorati</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Sensorlar jadvali -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-header">📡 Sensorlar</div>
+    <div class="jadval-konteyner">
+      <table>
+        <thead>
+          <tr>
+            <th>Sensor</th>
+            <th>O'lchaydigan gazlar</th>
+            <th>Interfeys</th>
+            <th>Holati</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:700">🏭 MQ-135</td>
+            <td>CO₂, NH₃, Benzol, Spirt</td>
+            <td>GPIO 23 (DO)</td>
+            <td><span class="chip yashil">✔ Faol</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:700">🔥 MQ-2</td>
+            <td>Tutun, Metan, LPG, Propan</td>
+            <td>GPIO 22 (DO)</td>
+            <td><span class="chip yashil">✔ Faol</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:700">💨 MQ-7</td>
+            <td>Uglerod oksidi (CO)</td>
+            <td>GPIO 21 (DO)</td>
+            <td><span class="chip kulrang">⏳ Rejalashtirilgan</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:700">🌡️ BME280</td>
+            <td>Harorat, Namlik, Bosim</td>
+            <td>I2C (SDA=21, SCL=22)</td>
+            <td><span class="chip kulrang">⏳ Rejalashtirilgan</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:700">🔴 SDS011</td>
+            <td>PM2.5, PM10 (zarrachalar)</td>
+            <td>UART</td>
+            <td><span class="chip kulrang">⏳ Rejalashtirilgan</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:700">🖥️ OLED 0.96"</td>
+            <td>Qurilmada ko'rsatish</td>
+            <td>I2C</td>
+            <td><span class="chip kulrang">⏳ Rejalashtirilgan</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AQI darajalari -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-header">📊 AQI Darajalari (EPA standartlari)</div>
+    <div style="display:grid;gap:0.5rem">
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem;border-radius:10px;background:rgba(16,185,129,0.1)">
+        <div style="width:14px;height:14px;border-radius:50%;background:#10b981;flex-shrink:0"></div>
+        <div><strong>0–50</strong> — Yaxshi: Havo sifati a'lo, barcha faoliyat xavfsiz</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem;border-radius:10px;background:rgba(245,158,11,0.1)">
+        <div style="width:14px;height:14px;border-radius:50%;background:#f59e0b;flex-shrink:0"></div>
+        <div><strong>51–100</strong> — O'rtacha: Juda sezgir odamlar ehtiyot bo'lishi mumkin</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem;border-radius:10px;background:rgba(249,115,22,0.1)">
+        <div style="width:14px;height:14px;border-radius:50%;background:#f97316;flex-shrink:0"></div>
+        <div><strong>101–150</strong> — Sezgir guruh uchun zararli: Bolalar va keksa odamlar cheklasin</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem;border-radius:10px;background:rgba(239,68,68,0.1)">
+        <div style="width:14px;height:14px;border-radius:50%;background:#ef4444;flex-shrink:0"></div>
+        <div><strong>151–200</strong> — Zararli: Hamma tashqi faoliyatni kamaytirsin</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem;border-radius:10px;background:rgba(139,92,246,0.1)">
+        <div style="width:14px;height:14px;border-radius:50%;background:#8b5cf6;flex-shrink:0"></div>
+        <div><strong>201–300</strong> — Juda zararli: Tashqarida bo'lmang</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem;border-radius:10px;background:rgba(120,53,15,0.2)">
+        <div style="width:14px;height:14px;border-radius:50%;background:#78350f;flex-shrink:0"></div>
+        <div><strong>301+</strong> — Xavfli: Favqulodda holat, niqob majburiy</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Muallif -->
+  <div class="card">
+    <div class="card-header">👤 Loyiha Muallifi</div>
+    <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap">
+      <div style="width:70px;height:70px;border-radius:50%;background:var(--karta2);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0">👤</div>
+      <div>
+        <div style="font-size:1.1rem;font-weight:700">[ISM SHARIF]</div>
+        <div style="color:var(--kulrang);font-size:0.88rem;margin-top:0.25rem">[FAKULTET] — [MUTAXASSISLIK]</div>
+        <div style="color:var(--kulrang);font-size:0.88rem">Ilmiy rahbar: [RAHBAR ISMI]</div>
+        <div style="margin-top:0.75rem;font-size:0.85rem">
+          <span class="chip kulrang">📍 [UNIVERSITET NOMI]</span>
+          <span class="chip kulrang" style="margin-left:0.4rem">📅 2025</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+<script src="/static/script.js"></script>
+</body>
+</html>

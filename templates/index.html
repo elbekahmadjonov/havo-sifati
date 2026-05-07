@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Havo Sifati — Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ─── Navigatsiya ─── -->
+<nav class="navbar">
+  <div class="nav-brand">🌬️ <span>Havo Sifati</span> Monitoringi</div>
+  <div class="nav-links">
+    <a href="/"        class="nav-link">Asosiy</a>
+    <a href="/history" class="nav-link">Tarix</a>
+    <a href="/about"   class="nav-link">Haqida</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- Xato paneli -->
+  <div id="xato-bar" class="alert-bar" style="display:none">
+    ⚠️ Server bilan bog'liq muammo. Qayta ulanilmoqda...
+  </div>
+
+  <!-- AQI + Sog'liq maslahat -->
+  <div class="grid-2">
+
+    <!-- AQI karta -->
+    <div class="card aqi-card" id="aqi-karta">
+      <div class="aqi-label">HAVO SIFATI INDEKSI (AQI)</div>
+      <div class="aqi-number" id="aqi-son">—</div>
+      <div class="aqi-daraja" id="aqi-daraja" style="color:var(--kulrang)">Yuklanmoqda...</div>
+      <div class="aqi-indicator" id="aqi-indicator"></div>
+    </div>
+
+    <!-- Sog'liq maslahat + Bashorat -->
+    <div class="card">
+      <div class="card-header">💚 Sog'liq Tavsiyasi</div>
+      <div class="tavsiya-matn" id="tavsiya-matn" style="color:var(--kulrang)">
+        Ma'lumot yuklanmoqda...
+      </div>
+
+      <div class="bashorat-sektsiya">
+        <div class="card-header">🤖 Bashorat — Keyingi 1 soat</div>
+        <div id="bashorat-blok" style="font-size:0.85rem;color:var(--kulrang)">
+          Yuklanmoqda...
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sensor kartalar -->
+  <div class="sensor-grid" id="sensor-grid"></div>
+
+  <!-- Real vaqt AQI grafigi -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">📈 So'nggi 1 soatlik AQI grafigi</div>
+    <div style="position:relative;height:220px">
+      <canvas id="aqi-grafik"></canvas>
+    </div>
+  </div>
+
+  <!-- Status qatori -->
+  <div class="status-bar">
+    <span id="status-vaqt">🕐 Yuklanmoqda...</span>
+    <span id="status-online" class="online-badge kulrang">● Kutilmoqda</span>
+  </div>
+
+</main>
+
+<script src="/static/script.js"></script>
+<script>
+// ─── Sensor konfiguratsiyasi ───
+const SENSORLAR = [
+  { id:'mq135',   nom:'MQ-135',  ikon:'🏭', tavsif:'CO₂, NH₃, Benzol',      tur:'binary' },
+  { id:'mq2',     nom:'MQ-2',    ikon:'🔥', tavsif:'Tutun, Metan, LPG',      tur:'binary' },
+  { id:'mq7',     nom:'MQ-7',    ikon:'💨', tavsif:'Uglerod oksidi (CO)',     tur:'binary' },
+  { id:'harorat', nom:'Harorat', ikon:'🌡️', tavsif:'Muhit harorati',          tur:'analog', birlik:'°C' },
+  { id:'namlik',  nom:'Namlik',  ikon:'💧', tavsif:'Havo namligi',            tur:'analog', birlik:'%' },
+  { id:'bosim',   nom:'Bosim',   ikon:'🔵', tavsif:'Atmosfera bosimi',        tur:'analog', birlik:'hPa' },
+  { id:'pm25',    nom:'PM2.5',   ikon:'🔴', tavsif:'Mayda zarrachalar',       tur:'analog', birlik:'μg/m³' },
+  { id:'pm10',    nom:'PM10',    ikon:'🟠', tavsif:'Yirik zarrachalar',       tur:'analog', birlik:'μg/m³' },
+];
+
+// ─── Sensor gridni HTML dan yaratish ───
+function sensorGridYarat() {
+  document.getElementById('sensor-grid').innerHTML = SENSORLAR.map(s => `
+    <div class="sensor-karta ulanmagan" id="sk-${s.id}">
+      <div class="sensor-yuqori">
+        <div>
+          <div class="sensor-nom">${s.ikon} ${s.nom}</div>
+          <div class="sensor-tavsif">${s.tavsif}</div>
+        </div>
+        <div class="sensor-holat-badge notr" id="badge-${s.id}">━</div>
+      </div>
+      <div class="sensor-qiymat" id="qiymat-${s.id}" style="color:var(--kulrang)">Ulanmagan</div>
+      <div class="sensor-status"  id="st-${s.id}">Sensor ulanmagan</div>
+    </div>
+  `).join('');
+}
+
+// ─── Bir sensor kartasini yangilash ───
+function sensorKartaYangilaш(s, qiymat) {
+  const karta   = document.getElementById(`sk-${s.id}`);
+  const qEl     = document.getElementById(`qiymat-${s.id}`);
+  const badgeEl = document.getElementById(`badge-${s.id}`);
+  const stEl    = document.getElementById(`st-${s.id}`);
+
+  karta.classList.remove('toza', 'xavf', 'ulanmagan');
+  badgeEl.classList.remove('puls');
+
+  if (qiymat === null || qiymat === undefined) {
+    karta.classList.add('ulanmagan');
+    qEl.textContent     = 'Ulanmagan';
+    qEl.style.color     = 'var(--kulrang)';
+    badgeEl.textContent = '━';
+    badgeEl.className   = 'sensor-holat-badge notr';
+    stEl.textContent    = 'Sensor ulanmagan';
+  } else if (s.tur === 'binary') {
+    if (qiymat === 1) {
+      karta.classList.add('toza');
+      qEl.textContent     = 'TOZA';
+      qEl.style.color     = 'var(--yashil)';
+      badgeEl.textContent = '✔';
+      badgeEl.className   = 'sensor-holat-badge yashil';
+      stEl.textContent    = 'Xavfsiz holat';
+    } else {
+      karta.classList.add('xavf');
+      qEl.textContent     = 'GAZ!';
+      qEl.style.color     = 'var(--qizil)';
+      badgeEl.textContent = '⚠';
+      badgeEl.className   = 'sensor-holat-badge qizil puls';
+      stEl.textContent    = 'Gaz aniqlandi!';
+    }
+  } else {
+    const son = parseFloat(qiymat).toFixed(1);
+    qEl.textContent     = `${son} ${s.birlik}`;
+    qEl.style.color     = 'var(--matn)';
+    badgeEl.textContent = '✔';
+    badgeEl.className   = 'sensor-holat-badge yashil';
+    karta.classList.add('toza');
+    stEl.textContent    = 'Ma\'lumot mavjud';
+  }
+}
+
+// ─── AQI display yangilash ───
+function aqiYangilaш(d) {
+  if (!d?.aqi) return;
+  const rang = d.rang || aqiRangi(d.aqi);
+
+  document.getElementById('aqi-son').textContent      = d.aqi;
+  document.getElementById('aqi-son').style.color      = rang;
+  document.getElementById('aqi-daraja').textContent   = d.daraja;
+  document.getElementById('aqi-daraja').style.color   = rang;
+  document.getElementById('aqi-indicator').style.background = rang;
+  document.getElementById('tavsiya-matn').textContent = d.tavsiya || '';
+  document.getElementById('tavsiya-matn').style.color = 'var(--matn)';
+
+  const karta = document.getElementById('aqi-karta');
+  karta.style.borderColor = rang;
+  karta.style.boxShadow   = `0 0 28px ${rang}28`;
+}
+
+// ─── Chart ───
+const ctx = document.getElementById('aqi-grafik').getContext('2d');
+const grafikObj = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: 'AQI',
+      data: [],
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59,130,246,0.08)',
+      tension: 0.4,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      fill: true,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` AQI: ${ctx.raw}`,
+          afterLabel: ctx => {
+            const aqi = ctx.raw;
+            if (aqi <= 50)  return ' Yaxshi';
+            if (aqi <= 100) return " O'rtacha";
+            if (aqi <= 150) return ' Sezgir guruh uchun';
+            if (aqi <= 200) return ' Zararli';
+            return ' Juda zararli';
+          }
+        }
+      }
+    },
+    scales: {
+      x: { ticks: { color:'#64748b', maxTicksLimit:8, maxRotation:0 }, grid: { color:'rgba(71,85,105,0.2)' } },
+      y: { min: 0, ticks: { color:'#64748b' }, grid: { color:'rgba(71,85,105,0.2)' } }
+    }
+  }
+});
+
+function grafikYangilaш(grafik) {
+  if (!grafik?.length) return;
+  grafikObj.data.labels             = grafik.map(r => faqatVaqt(r.vaqt));
+  grafikObj.data.datasets[0].data   = grafik.map(r => r.aqi ?? 0);
+
+  // Grafik rang o'rtacha AQI ga qarab o'zgaradi
+  const orta = grafik.reduce((s,r) => s + (r.aqi||0), 0) / grafik.length;
+  grafikObj.data.datasets[0].borderColor = aqiRangi(orta);
+  grafikObj.update('none');
+}
+
+// ─── Asosiy yangilash funksiyasi ───
+async function hammaNiBoshqaYangilaш() {
+  try {
+    const [dJavob, aqiJavob, bashoratJavob] = await Promise.all([
+      fetch('/api/data?limit=20&soat=1'),
+      fetch('/api/aqi'),
+      fetch('/api/predict'),
+    ]);
+    if (!dJavob.ok) throw new Error('Server xatosi');
+
+    const data      = await dJavob.json();
+    const aqiData   = await aqiJavob.json();
+    const bashorat  = await bashoratJavob.json();
+
+    document.getElementById('xato-bar').style.display = 'none';
+
+    // AQI, sensorlar, grafik
+    aqiYangilaш(aqiData);
+    SENSORLAR.forEach(s => sensorKartaYangilaш(s, data.oxirgi?.[s.id]));
+    grafikYangilaш(data.grafik);
+
+    // Bashorat
+    if (bashorat.aqi_bashorat != null) {
+      const rang = bashorat.rang || aqiRangi(bashorat.aqi_bashorat);
+      document.getElementById('bashorat-blok').innerHTML =
+        `<span style="color:${rang};font-weight:700;font-size:1rem">${bashorat.aqi_bashorat}</span>
+         <span style="color:${rang}"> — ${bashorat.daraja || ''}</span><br>
+         <span style="color:var(--kulrang);font-size:0.78rem">${bashorat.xabar}</span>`;
+    } else {
+      document.getElementById('bashorat-blok').textContent = bashorat.xabar || 'Yetarli ma\'lumot yo\'q.';
+    }
+
+    // Status
+    document.getElementById('status-vaqt').textContent    = `🕐 ${vaqtFormatla(data.server_vaqt)}`;
+    document.getElementById('status-online').textContent  = '● Online';
+    document.getElementById('status-online').className    = 'online-badge yashil';
+
+  } catch {
+    document.getElementById('xato-bar').style.display     = 'block';
+    document.getElementById('status-online').textContent  = '● Offline';
+    document.getElementById('status-online').className    = 'online-badge qizil';
+  }
+}
+
+// ─── Ishga tushirish ───
+sensorGridYarat();
+hammaNiBoshqaYangilaш();
+setInterval(hammaNiBoshqaYangilaш, 5000);   // har 5 sekundda yangilash
+</script>
+</body>
+</html>

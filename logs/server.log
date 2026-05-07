@@ -1,0 +1,9 @@
+2026-05-07 17:04:36 | INFO | ml_predictor | 🤖 Bashorat modeli yuklandi (statistik rejim).
+2026-05-07 17:08:32 | INFO | ml_predictor | 🤖 Bashorat modeli yuklandi (statistik rejim).
+2026-05-07 17:08:33 | INFO | ml_predictor | 🤖 Bashorat modeli yuklandi (statistik rejim).
+2026-05-07 17:08:33 | INFO | ml_predictor | 🤖 Bashorat modeli yuklandi (statistik rejim).
+2026-05-07 17:08:33 | INFO | database | ✅ Ma'lumotlar bazasi tayyor: havo_data.db
+2026-05-07 17:08:33 | INFO | server | 🚀 Server muvaffaqiyatli ishga tushdi!
+2026-05-07 17:08:33 | INFO | server | 📡 ESP32 -> POST /api/sensor
+2026-05-07 17:08:33 | INFO | server | 🌐 Dashboard -> http://localhost:8000
+2026-05-07 17:08:36 | INFO | server | 📥 ID:2    | AQI:201 (Juda zararli) | test

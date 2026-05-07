@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Havo Sifati — Tarix</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">🌬️ <span>Havo Sifati</span> Monitoringi</div>
+  <div class="nav-links">
+    <a href="/"        class="nav-link">Asosiy</a>
+    <a href="/history" class="nav-link">Tarix</a>
+    <a href="/about"   class="nav-link">Haqida</a>
+  </div>
+</nav>
+
+<main class="container">
+
+  <!-- Vaqt oraligi tanlash -->
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem">
+      <div>
+        <div style="font-weight:700;margin-bottom:0.25rem">📅 Vaqt oraligi</div>
+        <div style="font-size:0.8rem;color:var(--kulrang)" id="jami-yozuv">Yuklanmoqda...</div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary btn-sm" onclick="tarixYukla(1)"    id="btn-1s">1 soat</button>
+        <button class="btn btn-secondary btn-sm" onclick="tarixYukla(24)"  id="btn-24s">24 soat</button>
+        <button class="btn btn-secondary btn-sm" onclick="tarixYukla(168)" id="btn-7k">7 kun</button>
+        <button class="btn btn-secondary btn-sm" onclick="tarixYukla(720)" id="btn-30k">30 kun</button>
+        <a href="/api/export/csv" class="btn btn-success btn-sm" download>⬇ CSV</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistika qatori -->
+  <div class="stat-grid" id="stat-grid">
+    <div class="stat-element"><div class="stat-son" id="stat-jami">—</div><div class="stat-nom">O'lchovlar soni</div></div>
+    <div class="stat-element"><div class="stat-son" id="stat-aqi-orta" style="color:var(--ko-k)">—</div><div class="stat-nom">O'rtacha AQI</div></div>
+    <div class="stat-element"><div class="stat-son" id="stat-aqi-max" style="color:var(--qizil)">—</div><div class="stat-nom">Eng yuqori AQI</div></div>
+    <div class="stat-element"><div class="stat-son" id="stat-aqi-min" style="color:var(--yashil)">—</div><div class="stat-nom">Eng past AQI</div></div>
+    <div class="stat-element"><div class="stat-son" id="stat-harorat" style="color:var(--sariq)">—</div><div class="stat-nom">O'rtacha harorat</div></div>
+    <div class="stat-element"><div class="stat-son" id="stat-pm25" style="color:var(--toqsariq)">—</div><div class="stat-nom">O'rtacha PM2.5</div></div>
+  </div>
+
+  <!-- AQI grafigi -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-header">📈 AQI Trendi</div>
+    <div style="position:relative;height:240px">
+      <canvas id="aqi-grafik"></canvas>
+    </div>
+  </div>
+
+  <!-- Sensor holat grafigi -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-header">🔬 MQ Sensor holatlari (1=Toza, 0=Gaz)</div>
+    <div style="position:relative;height:180px">
+      <canvas id="mq-grafik"></canvas>
+    </div>
+  </div>
+
+  <!-- Ma'lumot jadvali -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
+      <div class="card-header" style="margin:0">📋 Ma'lumotlar jadvali</div>
+      <div id="sahifa-info" style="font-size:0.8rem;color:var(--kulrang)"></div>
+    </div>
+
+    <div class="jadval-konteyner">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vaqt</th>
+            <th>AQI</th>
+            <th>MQ-135</th>
+            <th>MQ-2</th>
+            <th>MQ-7</th>
+            <th>Harorat</th>
+            <th>Namlik</th>
+            <th>PM2.5</th>
+            <th>PM10</th>
+          </tr>
+        </thead>
+        <tbody id="jadval-tanasi">
+          <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--kulrang)">Yuklanmoqda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Sahifalash -->
+    <div class="sahifalash" id="sahifalash-blok" style="display:none">
+      <button class="btn btn-secondary btn-sm" id="btn-oldingi" onclick="sahifaOzgartir(-1)">← Oldingi</button>
+      <span id="sahifa-raqam" style="font-size:0.85rem;color:var(--kulrang)"></span>
+      <button class="btn btn-secondary btn-sm" id="btn-keyingi" onclick="sahifaOzgartir(1)">Keyingi →</button>
+    </div>
+  </div>
+
+</main>
+
+<script src="/static/script.js"></script>
+<script>
+const SAHIFA_KATTALIGI = 20;
+let jadvalData  = [];
+let joriyOraliq = 1;
+let joriyOraliqSoat = 1;
+
+// ─── Grafiklar ───
+const aqiGrafik = new Chart(document.getElementById('aqi-grafik').getContext('2d'), {
+  type: 'line',
+  data: { labels: [], datasets: [{
+    label: 'AQI',
+    data: [],
+    borderColor: '#3b82f6',
+    backgroundColor: 'rgba(59,130,246,0.07)',
+    tension: 0.4,
+    pointRadius: 1,
+    fill: true,
+  }]},
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color:'#64748b', maxTicksLimit:10, maxRotation:0 }, grid: { color:'rgba(71,85,105,0.2)' } },
+      y: { min: 0, ticks: { color:'#64748b' }, grid: { color:'rgba(71,85,105,0.2)' } }
+    }
+  }
+});
+
+const mqGrafik = new Chart(document.getElementById('mq-grafik').getContext('2d'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'MQ-135', data: [], borderColor: '#3b82f6', backgroundColor: 'transparent', tension: 0, pointRadius: 1, stepped: true },
+    { label: 'MQ-2',   data: [], borderColor: '#ef4444', backgroundColor: 'transparent', tension: 0, pointRadius: 1, stepped: true },
+    { label: 'MQ-7',   data: [], borderColor: '#f59e0b', backgroundColor: 'transparent', tension: 0, pointRadius: 1, stepped: true },
+  ]},
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color:'#94a3b8', boxWidth:12 } } },
+    scales: {
+      x: { ticks: { color:'#64748b', maxTicksLimit:10, maxRotation:0 }, grid: { color:'rgba(71,85,105,0.2)' } },
+      y: { min: -0.1, max: 1.1,
+           ticks: { color:'#64748b', callback: v => v===1 ? 'Toza' : v===0 ? 'Gaz' : '', stepSize: 1 },
+           grid: { color:'rgba(71,85,105,0.2)' } }
+    }
+  }
+});
+
+// ─── Tarix yuklash ───
+async function tarixYukla(soat) {
+  joriyOraliqSoat = soat;
+  joriyOraliq     = 0;
+
+  // Tugma holatlarini yangilash
+  ['1s','24s','7k','30k'].forEach(id => {
+    document.getElementById(`btn-${id}`).className = 'btn btn-secondary btn-sm';
+  });
+  const btnMap = {1:'1s', 24:'24s', 168:'7k', 720:'30k'};
+  if (btnMap[soat]) document.getElementById(`btn-${btnMap[soat]}`).className = 'btn btn-primary btn-sm';
+
+  try {
+    const [dJavob, statJavob] = await Promise.all([
+      fetch(`/api/data?limit=2000&soat=${soat}`),
+      fetch(`/api/stats?soat=${soat}`),
+    ]);
+    const d    = await dJavob.json();
+    const stat = await statJavob.json();
+
+    // Statistika yangilash
+    document.getElementById('stat-jami').textContent    = stat.olchov_soni    ?? '—';
+    document.getElementById('stat-aqi-orta').textContent = stat.aqi?.orta     ?? '—';
+    document.getElementById('stat-aqi-max').textContent  = stat.aqi?.max      ?? '—';
+    document.getElementById('stat-aqi-min').textContent  = stat.aqi?.min      ?? '—';
+    document.getElementById('stat-harorat').textContent  = stat.harorat?.orta ? `${stat.harorat.orta}°C` : '—';
+    document.getElementById('stat-pm25').textContent     = stat.pm25?.orta    ? `${stat.pm25.orta}` : '—';
+    document.getElementById('jami-yozuv').textContent    = `Jami bazada: ${stat.jami_baza} ta o'lchov`;
+
+    // Vaqt labellari
+    const labels = d.grafik.map(r => joriyOraliqSoat <= 24 ? faqatVaqt(r.vaqt) : vaqtFormatla(r.vaqt).slice(0,10));
+
+    // AQI grafigi
+    aqiGrafik.data.labels             = labels;
+    aqiGrafik.data.datasets[0].data   = d.grafik.map(r => r.aqi ?? null);
+    aqiGrafik.update('none');
+
+    // MQ grafigi
+    mqGrafik.data.labels              = labels;
+    mqGrafik.data.datasets[0].data    = d.grafik.map(r => r.mq135);
+    mqGrafik.data.datasets[1].data    = d.grafik.map(r => r.mq2);
+    mqGrafik.data.datasets[2].data    = d.grafik.map(r => r.mq7);
+    mqGrafik.update('none');
+
+    // Jadval
+    jadvalData = d.grafik.slice().reverse();
+    jadvalRender();
+
+  } catch(e) {
+    console.error('Tarix yuklashda xato:', e);
+  }
+}
+
+// ─── Jadval render ───
+function jadvalRender() {
+  const jami   = jadvalData.length;
+  const sahifa = joriyOraliq;
+  const start  = sahifa * SAHIFA_KATTALIGI;
+  const rows   = jadvalData.slice(start, start + SAHIFA_KATTALIGI);
+
+  const tbody  = document.getElementById('jadval-tanasi');
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--kulrang)">Ma'lumot yo'q</td></tr>`;
+    document.getElementById('sahifalash-blok').style.display = 'none';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r, i) => {
+    const aqi   = r.aqi ?? '—';
+    const rang  = r.aqi ? aqiRangi(r.aqi) : 'var(--kulrang)';
+    return `<tr>
+      <td style="color:var(--kulrang)">${start + i + 1}</td>
+      <td style="white-space:nowrap">${vaqtFormatla(r.vaqt)}</td>
+      <td><span style="color:${rang};font-weight:700">${aqi}</span></td>
+      <td>${sensorChip(r.mq135)}</td>
+      <td>${sensorChip(r.mq2)}</td>
+      <td>${sensorChip(r.mq7)}</td>
+      <td>${analogChip(r.harorat,'°C')}</td>
+      <td>${analogChip(r.namlik,'%')}</td>
+      <td>${analogChip(r.pm25,'μg/m³')}</td>
+      <td>${analogChip(r.pm10,'μg/m³')}</td>
+    </tr>`;
+  }).join('');
+
+  const sahifalarJami = Math.ceil(jami / SAHIFA_KATTALIGI);
+  document.getElementById('sahifa-info').textContent =
+    `${start+1}–${Math.min(start+SAHIFA_KATTALIGI, jami)} / ${jami} ta yozuv`;
+  document.getElementById('sahifa-raqam').textContent =
+    `${sahifa+1} / ${sahifalarJami}`;
+
+  document.getElementById('btn-oldingi').disabled = sahifa === 0;
+  document.getElementById('btn-keyingi').disabled = sahifa+1 >= sahifalarJami;
+  document.getElementById('sahifalash-blok').style.display =
+    sahifalarJami > 1 ? 'flex' : 'none';
+}
+
+function sahifaOzgartir(delta) {
+  joriyOraliq = Math.max(0, joriyOraliq + delta);
+  jadvalRender();
+}
+
+// ─── Ishga tushirish ───
+tarixYukla(1);
+</script>
+</body>
+</html>
