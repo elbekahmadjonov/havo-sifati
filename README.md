@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Havo Sifati Monitoringi v2.0
 
 **Diplom ishi:** "Havo sifatining bashoratli monitoringi uchun aqlli qurilma va dasturiy ta'minot"
@@ -271,3 +272,7 @@ df = pd.read_csv('havo_data.csv')
 ---
 
 *Diplom ishi | 2025*
+=======
+# havo-sifati-monitoringi
+Diplom ishi - ESP32 asosida havo sifati monitoringi
+>>>>>>> 362e2c1ba9391f282d37e1ec52f3a4e9f8fea93c
