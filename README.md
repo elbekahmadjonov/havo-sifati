@@ -1,2 +1,2 @@
-# havo-sifati
-Havo sifatini bashoratli monitoringi uchun aqlli qurilma va tahlil uchun dasturiy ta'minot ishlab chiqish
+# havo-sifati-monitoringi
+Diplom ishi - ESP32 asosida havo sifati monitoringi
