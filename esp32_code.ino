@@ -21,8 +21,8 @@
 // ─────────────────────────────────────────────
 
 // Wi-Fi ma'lumotlari
-const char* WIFI_SSID     = "SIZNING_WIFI_NOMI";
-const char* WIFI_PAROL    = "SIZNING_WIFI_PAROLI";
+const char* WIFI_SSID     = "esp32";
+const char* WIFI_PAROL    = "12123434";
 
 // Server manzili — kompyuteringizning lokal IP manzili
 // (cmd > ipconfig > IPv4 Address ni ko'ring)
