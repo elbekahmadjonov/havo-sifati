@@ -37,6 +37,21 @@ log = logging.getLogger(__name__)
 
 TOSHKENT_TZ = timezone(timedelta(hours=5))
 
+
+def _vaqt_farq_matn(vaqt_str: str | None) -> str:
+    """Oxirgi o'lchov vaqtidan qancha o'tganligini o'zbek tilida qaytaradi."""
+    if not vaqt_str:
+        return "Noma'lum"
+    try:
+        delta  = datetime.now(TOSHKENT_TZ) - datetime.fromisoformat(vaqt_str)
+        daqiqa = int(delta.total_seconds() / 60)
+        soat   = daqiqa // 60
+        if soat > 0:
+            return f"{soat} soat {daqiqa % 60} daqiqa oldin"
+        return f"{max(daqiqa, 0)} daqiqa oldin"
+    except Exception:
+        return "Noma'lum"
+
 # ─── ML bashorat modeli ───
 bashorat_modeli = ml_predictor.HavoSifatBashorati()
 
@@ -145,22 +160,54 @@ async def api_data(
 
 @app.get("/api/aqi", summary="Hozirgi AQI qiymati va holati")
 async def api_aqi():
-    """Eng so'nggi o'lchovdan hisoblangan AQI, daraja va sog'liq tavsiyasi."""
-    oxirgi = database.oxirgi_olchov()
-    if not oxirgi:
+    """Eng so'nggi o'lchovdan hisoblangan AQI, daraja, sensor holati va sog'liq tavsiyasi."""
+    oxirgi          = database.oxirgi_olchov()
+    online          = database.qurilma_onlinemi()
+    oxirgi_vaqt_str = oxirgi.get("vaqt") if oxirgi else None
+    oxirgi_korinish = _vaqt_farq_matn(oxirgi_vaqt_str)
+
+    if not oxirgi or not online:
         return {
-            "aqi":        None,
-            "daraja":     "Ma'lumot yo'q",
-            "rang":       "#64748b",
-            "tavsiya":    "Hali hech qanday sensor ma'lumoti kelmagan.",
-            "oxirgi_vaqt": None,
+            "hozir":           None,
+            "daraja":          "Noma'lum",
+            "rang":            "#64748b",
+            "emoji":           "⚫",
+            "tavsiya":         "Qurilma bilan aloqa yo'q! So'nggi ma'lumot yangilanmayapti.",
+            "sensorlar":       [],
+            "harorat":         None,
+            "namlik":          None,
+            "oxirgi_vaqt":     oxirgi_vaqt_str,
+            "qurilma_online":  False,
+            "oxirgi_korinish": oxirgi_korinish,
         }
 
-    aqi    = oxirgi.get("aqi") or aqi_calculator.get_overall_aqi(oxirgi)
-    kat    = aqi_calculator.get_aqi_category(aqi)
-    tavsiya = aqi_calculator.get_health_advice(aqi)
+    aqi     = oxirgi.get("aqi") or aqi_calculator.get_overall_aqi(oxirgi)
+    kat     = aqi_calculator.get_aqi_category(aqi)
+    tavsiya = aqi_calculator.sog_liq_tavsiya(
+        aqi,
+        harorat=oxirgi.get("harorat"),
+        namlik=oxirgi.get("namlik"),
+    )
+    sensorlar = aqi_calculator.sensor_holati(
+        mq135=oxirgi.get("mq135"),
+        mq2=oxirgi.get("mq2"),
+        mq7=oxirgi.get("mq7"),
+    )
 
-    return {**kat, "tavsiya": tavsiya, "oxirgi_vaqt": oxirgi.get("vaqt")}
+    return {
+        "hozir":           kat["aqi"],
+        "daraja":          kat["daraja"],
+        "rang":            kat["rang"],
+        "emoji":           kat.get("emoji", ""),
+        "tavsiya":         tavsiya,
+        "sensorlar":       sensorlar,
+        "harorat":         oxirgi.get("harorat"),
+        "namlik":          oxirgi.get("namlik"),
+        "bosim":           oxirgi.get("bosim"),
+        "oxirgi_vaqt":     oxirgi.get("vaqt"),
+        "qurilma_online":  True,
+        "oxirgi_korinish": oxirgi_korinish,
+    }
 
 
 @app.get("/api/predict", summary="Keyingi 1 soatlik AQI bashorati")

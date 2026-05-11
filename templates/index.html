@@ -21,35 +21,70 @@
 
 <main class="container">
 
-  <!-- Xato paneli -->
+  <!-- Xato paneli (server bilan aloqa yo'q) -->
   <div id="xato-bar" class="alert-bar" style="display:none">
     ⚠️ Server bilan bog'liq muammo. Qayta ulanilmoqda...
   </div>
 
-  <!-- AQI + Sog'liq maslahat -->
-  <div class="grid-2">
+  <!-- Qurilma offline banneri (ESP32 bilan aloqa yo'q) -->
+  <div id="offline-banner" class="offline-banner puls" style="display:none">
+    <span>⚠️ Qurilma bilan aloqa yo'q!</span>
+    <span style="font-weight:400">Oxirgi ko'rinish: <strong id="offline-vaqt">—</strong></span>
+  </div>
+
+  <!-- AQI + LSTM + Sog'liq maslahat — 3 ustun -->
+  <div class="grid-3">
 
     <!-- AQI karta -->
     <div class="card aqi-card" id="aqi-karta">
       <div class="aqi-label">HAVO SIFATI INDEKSI (AQI)</div>
       <div class="aqi-number" id="aqi-son">—</div>
+      <div class="aqi-emoji" id="aqi-emoji" style="font-size:2.2rem;line-height:1;margin:0.3rem 0"></div>
       <div class="aqi-daraja" id="aqi-daraja" style="color:var(--kulrang)">Yuklanmoqda...</div>
       <div class="aqi-indicator" id="aqi-indicator"></div>
     </div>
 
-    <!-- Sog'liq maslahat + Bashorat -->
+    <!-- LSTM Bashorat kartasi -->
+    <div class="card lstm-karta" id="lstm-karta">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9rem">
+        <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#60a5fa">
+          🤖 LSTM Bashorati
+        </div>
+        <div id="lstm-usul" style="font-size:0.62rem;padding:0.15rem 0.5rem;border-radius:999px;background:var(--karta2);color:var(--kulrang)">
+          Yuklanmoqda
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:0.9rem 0.5rem;background:rgba(59,130,246,0.1);border-radius:12px;border:1px solid rgba(59,130,246,0.18);margin-bottom:0.8rem">
+        <div style="font-size:0.65rem;color:var(--kulrang);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.3rem">Keyingi 1 soat:</div>
+        <div id="lstm-aqi-son" style="font-size:3rem;font-weight:900;line-height:1;color:#60a5fa;transition:color 0.5s">—</div>
+        <div id="lstm-daraja" style="font-size:0.85rem;font-weight:700;margin-top:0.3rem;color:var(--kulrang);transition:color 0.4s">Yuklanmoqda...</div>
+      </div>
+
+      <div id="lstm-trend" style="font-size:0.9rem;font-weight:700;margin-bottom:0.6rem;color:var(--kulrang)">➡️ Barqaror</div>
+
+      <div style="margin-bottom:0.65rem">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--kulrang);margin-bottom:0.25rem">
+          <span>Ishonch:</span>
+          <span id="lstm-ishonch-foiz" style="color:#60a5fa;font-weight:700">—%</span>
+        </div>
+        <div style="height:5px;background:var(--karta2);border-radius:3px;overflow:hidden">
+          <div id="lstm-progress" style="height:100%;width:0%;background:linear-gradient(90deg,#3b82f6,#10b981);border-radius:3px;transition:width 0.8s ease"></div>
+        </div>
+      </div>
+
+      <div id="lstm-xabar" style="font-size:0.73rem;color:var(--kulrang);line-height:1.5;border-top:1px solid var(--chegara);padding-top:0.6rem">
+        Yuklanmoqda...
+      </div>
+    </div>
+
+    <!-- Sog'liq maslahat -->
     <div class="card">
       <div class="card-header">💚 Sog'liq Tavsiyasi</div>
       <div class="tavsiya-matn" id="tavsiya-matn" style="color:var(--kulrang)">
         Ma'lumot yuklanmoqda...
       </div>
-
-      <div class="bashorat-sektsiya">
-        <div class="card-header">🤖 Bashorat — Keyingi 1 soat</div>
-        <div id="bashorat-blok" style="font-size:0.85rem;color:var(--kulrang)">
-          Yuklanmoqda...
-        </div>
-      </div>
+      <div id="sensorlar-holat" style="margin-top:0.75rem;font-size:0.84rem;line-height:1.7"></div>
     </div>
 
   </div>
@@ -62,6 +97,34 @@
     <div class="card-header">📈 So'nggi 1 soatlik AQI grafigi</div>
     <div style="position:relative;height:220px">
       <canvas id="aqi-grafik"></canvas>
+    </div>
+  </div>
+
+  <!-- Tarix + LSTM Bashorat grafigi -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
+      <div class="card-header" style="margin-bottom:0">📊 Tarix + LSTM Bashorat grafigi</div>
+      <div style="display:flex;gap:1.25rem;font-size:0.75rem">
+        <span style="color:#3b82f6">━ Haqiqiy AQI</span>
+        <span style="color:#ef4444">┅ LSTM bashorat</span>
+      </div>
+    </div>
+    <div style="position:relative;height:260px">
+      <canvas id="tahmin-grafik"></canvas>
+    </div>
+    <div style="display:flex;gap:1rem;margin-top:0.6rem;flex-wrap:wrap">
+      <span style="font-size:0.68rem;color:var(--kulrang);display:flex;align-items:center;gap:0.3rem">
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(16,185,129,0.3);border-radius:2px"></span>0–50 Yaxshi
+      </span>
+      <span style="font-size:0.68rem;color:var(--kulrang);display:flex;align-items:center;gap:0.3rem">
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(245,158,11,0.3);border-radius:2px"></span>51–100 O'rtacha
+      </span>
+      <span style="font-size:0.68rem;color:var(--kulrang);display:flex;align-items:center;gap:0.3rem">
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(249,115,22,0.3);border-radius:2px"></span>101–150 Sezgir
+      </span>
+      <span style="font-size:0.68rem;color:var(--kulrang);display:flex;align-items:center;gap:0.3rem">
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(239,68,68,0.3);border-radius:2px"></span>151+ Zararli
+      </span>
     </div>
   </div>
 
@@ -82,7 +145,7 @@ const SENSORLAR = [
   { id:'mq7',     nom:'MQ-7',    ikon:'💨', tavsif:'Uglerod oksidi (CO)',     tur:'binary' },
   { id:'harorat', nom:'Harorat', ikon:'🌡️', tavsif:'Muhit harorati',          tur:'analog', birlik:'°C' },
   { id:'namlik',  nom:'Namlik',  ikon:'💧', tavsif:'Havo namligi',            tur:'analog', birlik:'%' },
-  { id:'bosim',   nom:'Bosim',   ikon:'🔵', tavsif:'Atmosfera bosimi',        tur:'analog', birlik:'hPa' },
+  { id:'bosim',   nom:'Bosim',   ikon:'🌬️', tavsif:'Atmosfera bosimi (BMP280)', tur:'analog', birlik:'hPa' },
   { id:'pm25',    nom:'PM2.5',   ikon:'🔴', tavsif:'Mayda zarrachalar',       tur:'analog', birlik:'μg/m³' },
   { id:'pm10',    nom:'PM10',    ikon:'🟠', tavsif:'Yirik zarrachalar',       tur:'analog', birlik:'μg/m³' },
 ];
@@ -144,29 +207,153 @@ function sensorKartaYangilaш(s, qiymat) {
     badgeEl.textContent = '✔';
     badgeEl.className   = 'sensor-holat-badge yashil';
     karta.classList.add('toza');
-    stEl.textContent    = 'Ma\'lumot mavjud';
+    stEl.textContent    = 'Ishlaydi';
   }
 }
 
-// ─── AQI display yangilash ───
-function aqiYangilaш(d) {
-  if (!d?.aqi) return;
-  const rang = d.rang || aqiRangi(d.aqi);
-
-  document.getElementById('aqi-son').textContent      = d.aqi;
-  document.getElementById('aqi-son').style.color      = rang;
-  document.getElementById('aqi-daraja').textContent   = d.daraja;
-  document.getElementById('aqi-daraja').style.color   = rang;
-  document.getElementById('aqi-indicator').style.background = rang;
-  document.getElementById('tavsiya-matn').textContent = d.tavsiya || '';
-  document.getElementById('tavsiya-matn').style.color = 'var(--matn)';
-
-  const karta = document.getElementById('aqi-karta');
-  karta.style.borderColor = rang;
-  karta.style.boxShadow   = `0 0 28px ${rang}28`;
+// ─── Qurilma offline bo'lganda sensor kartasini kulranglashtirish ───
+function sensorKartaOffline(s) {
+  const karta   = document.getElementById(`sk-${s.id}`);
+  const qEl     = document.getElementById(`qiymat-${s.id}`);
+  const badgeEl = document.getElementById(`badge-${s.id}`);
+  const stEl    = document.getElementById(`st-${s.id}`);
+  if (!karta) return;
+  karta.classList.remove('toza', 'xavf');
+  karta.classList.add('ulanmagan');
+  badgeEl.classList.remove('puls');
+  qEl.textContent     = 'Aloqa yo\'q';
+  qEl.style.color     = 'var(--kulrang)';
+  badgeEl.textContent = '⊘';
+  badgeEl.className   = 'sensor-holat-badge notr';
+  stEl.textContent    = 'Qurilma offline';
 }
 
-// ─── Chart ───
+// ─── AQI mustaqil fetch + display (cache yo'q) ───
+async function aqiYanila() {
+  try {
+    const javob = await fetch('/api/aqi?' + new Date().getTime(), { cache: 'no-store' });
+    const d = await javob.json();
+
+    const banner  = document.getElementById('offline-banner');
+    const karta   = document.getElementById('aqi-karta');
+
+    if (!d.qurilma_online) {
+      // ── Offline holat ─────────────────────────────────
+      banner.style.display = 'flex';
+      document.getElementById('offline-vaqt').textContent = d.oxirgi_korinish || 'Noma\'lum';
+
+      karta.style.borderColor = '#475569';
+      karta.style.boxShadow   = 'none';
+      karta.style.opacity     = '0.55';
+
+      document.getElementById('aqi-son').textContent            = '—';
+      document.getElementById('aqi-son').style.color            = '#64748b';
+      document.getElementById('aqi-emoji').textContent          = '⚫';
+      document.getElementById('aqi-daraja').textContent         = "Noma'lum";
+      document.getElementById('aqi-daraja').style.color         = '#64748b';
+      document.getElementById('aqi-indicator').style.background = '#475569';
+      document.getElementById('tavsiya-matn').textContent       = "Qurilma bilan aloqa yo'q!";
+      document.getElementById('tavsiya-matn').style.color       = '#ef4444';
+      document.getElementById('sensorlar-holat').innerHTML      = '';
+
+      SENSORLAR.forEach(sensorKartaOffline);
+      console.log('Qurilma offline:', d.oxirgi_korinish);
+      return;
+    }
+
+    // ── Online holat ──────────────────────────────────────
+    banner.style.display  = 'none';
+    karta.style.opacity   = '1';
+
+    if (d.hozir == null) return;
+    const rang = d.rang || aqiRangi(d.hozir);
+
+    karta.style.borderColor = rang;
+    karta.style.boxShadow   = `0 0 28px ${rang}28`;
+
+    document.getElementById('aqi-son').textContent            = d.hozir;
+    document.getElementById('aqi-son').style.color            = rang;
+    document.getElementById('aqi-emoji').textContent          = d.emoji || '';
+    document.getElementById('aqi-daraja').textContent         = d.daraja || '';
+    document.getElementById('aqi-daraja').style.color         = rang;
+    document.getElementById('aqi-indicator').style.background = rang;
+    document.getElementById('tavsiya-matn').textContent       = d.tavsiya || '';
+    document.getElementById('tavsiya-matn').style.color       = 'var(--matn)';
+
+    const sensorlarEl = document.getElementById('sensorlar-holat');
+    if (Array.isArray(d.sensorlar) && d.sensorlar.length) {
+      const hammaToza = d.sensorlar.length === 1 && d.sensorlar[0].includes('normal');
+      sensorlarEl.innerHTML = d.sensorlar.map(x =>
+        `<div style="color:${hammaToza ? 'var(--yashil,#10b981)' : 'var(--qizil,#ef4444)'}">
+           ${hammaToza ? '✅' : '⚠️'} ${x}
+         </div>`
+      ).join('');
+    } else {
+      sensorlarEl.innerHTML = '';
+    }
+
+    console.log('AQI yangilandi:', d.hozir, d.daraja);
+  } catch (e) {
+    console.error('AQI xato:', e);
+  }
+}
+
+// ─── AQI zona rangli chiziqlar plugin ───
+const aqiZonePlugin = {
+  id: 'aqiZones',
+  beforeDraw(chart) {
+    const {ctx: c, chartArea, scales: {y}} = chart;
+    if (!y || !chartArea) return;
+    const {left, right} = chartArea;
+    const zones = [
+      {min: 0,   max: 50,  color: 'rgba(16,185,129,0.07)'},
+      {min: 50,  max: 100, color: 'rgba(245,158,11,0.07)'},
+      {min: 100, max: 150, color: 'rgba(249,115,22,0.07)'},
+      {min: 150, max: 250, color: 'rgba(239,68,68,0.07)'},
+    ];
+    c.save();
+    zones.forEach(({min, max, color}) => {
+      const y0 = y.getPixelForValue(max);
+      const y1 = y.getPixelForValue(min);
+      if (y0 == null || y1 == null) return;
+      c.fillStyle = color;
+      c.fillRect(left, y0, right - left, y1 - y0);
+    });
+    c.restore();
+  }
+};
+
+// ─── "HOZIR" vertikal chiziq plugin ───
+const hozirChiziqPlugin = {
+  id: 'hozirChiziq',
+  afterDraw(chart) {
+    if (chart._hozirIndex === undefined) return;
+    const {ctx: c, chartArea, scales: {x}} = chart;
+    if (!x || !chartArea) return;
+    const idx  = chart._hozirIndex;
+    const x0   = x.getPixelForValue(idx);
+    const x1   = x.getPixelForValue(idx + 1);
+    if (x0 == null || x1 == null) return;
+    const xPos = (x0 + x1) / 2;
+    if (xPos < chartArea.left || xPos > chartArea.right) return;
+    c.save();
+    c.setLineDash([4, 3]);
+    c.strokeStyle = 'rgba(148,163,184,0.55)';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(xPos, chartArea.top + 20);
+    c.lineTo(xPos, chartArea.bottom);
+    c.stroke();
+    c.setLineDash([]);
+    c.font = 'bold 9px Segoe UI,sans-serif';
+    c.textAlign = 'center';
+    c.fillStyle = '#64748b';
+    c.fillText('HOZIR', xPos, chartArea.top + 13);
+    c.restore();
+  }
+};
+
+// ─── AQI grafigi (1 soatlik real vaqt) ───
 const ctx = document.getElementById('aqi-grafik').getContext('2d');
 const grafikObj = new Chart(ctx, {
   type: 'line',
@@ -211,63 +398,225 @@ const grafikObj = new Chart(ctx, {
 
 function grafikYangilaш(grafik) {
   if (!grafik?.length) return;
-  grafikObj.data.labels             = grafik.map(r => faqatVaqt(r.vaqt));
-  grafikObj.data.datasets[0].data   = grafik.map(r => r.aqi ?? 0);
-
-  // Grafik rang o'rtacha AQI ga qarab o'zgaradi
+  grafikObj.data.labels           = grafik.map(r => faqatVaqt(r.vaqt));
+  grafikObj.data.datasets[0].data = grafik.map(r => r.aqi ?? 0);
   const orta = grafik.reduce((s,r) => s + (r.aqi||0), 0) / grafik.length;
   grafikObj.data.datasets[0].borderColor = aqiRangi(orta);
   grafikObj.update('none');
 }
 
-// ─── Asosiy yangilash funksiyasi ───
+// ─── Tahmin + Tarix grafigi ───
+const tahminCtx = document.getElementById('tahmin-grafik').getContext('2d');
+const tahminGrafik = new Chart(tahminCtx, {
+  plugins: [aqiZonePlugin, hozirChiziqPlugin],
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      {
+        label: 'Haqiqiy AQI',
+        data: [],
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,0.06)',
+        tension: 0.4,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        fill: true,
+        spanGaps: false,
+      },
+      {
+        label: 'LSTM bashorat',
+        data: [],
+        borderColor: '#ef4444',
+        borderDash: [6, 3],
+        backgroundColor: 'rgba(239,68,68,0.12)',
+        tension: 0,
+        pointRadius: 9,
+        pointHoverRadius: 11,
+        pointStyle: 'star',
+        pointBackgroundColor: '#ef4444',
+        fill: false,
+        spanGaps: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        labels: { color: '#94a3b8', font: { size: 11 }, usePointStyle: true, boxHeight: 8 }
+      },
+      tooltip: {
+        callbacks: {
+          label: c => (c.raw == null ? '' : ` ${c.dataset.label}: ${c.raw}`)
+        }
+      }
+    },
+    scales: {
+      x: { ticks: { color: '#64748b', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(71,85,105,0.2)' } },
+      y: { min: 0, suggestedMax: 200, ticks: { color: '#64748b' }, grid: { color: 'rgba(71,85,105,0.2)' } }
+    }
+  }
+});
+
+// ─── Asosiy yangilash funksiyasi (sensor + AQI grafigi) ───
 async function hammaNiBoshqaYangilaш() {
   try {
-    const [dJavob, aqiJavob, bashoratJavob] = await Promise.all([
-      fetch('/api/data?limit=20&soat=1'),
-      fetch('/api/aqi'),
-      fetch('/api/predict'),
-    ]);
+    const dJavob = await fetch('/api/data?limit=20&soat=1', { cache: 'no-store' });
     if (!dJavob.ok) throw new Error('Server xatosi');
-
-    const data      = await dJavob.json();
-    const aqiData   = await aqiJavob.json();
-    const bashorat  = await bashoratJavob.json();
+    const data = await dJavob.json();
 
     document.getElementById('xato-bar').style.display = 'none';
 
-    // AQI, sensorlar, grafik
-    aqiYangilaш(aqiData);
-    SENSORLAR.forEach(s => sensorKartaYangilaш(s, data.oxirgi?.[s.id]));
+    // Sensor kartalar — qurilma offline bo'lsa "Aloqa yo'q" ko'rsatish
+    const oxVaqt    = data.oxirgi?.vaqt;
+    const offline   = !oxVaqt || (Date.now() - new Date(oxVaqt).getTime() > 2 * 60 * 1000);
+    if (offline) {
+      SENSORLAR.forEach(sensorKartaOffline);
+    } else {
+      SENSORLAR.forEach(s => sensorKartaYangilaш(s, data.oxirgi?.[s.id]));
+    }
     grafikYangilaш(data.grafik);
 
-    // Bashorat
-    if (bashorat.aqi_bashorat != null) {
-      const rang = bashorat.rang || aqiRangi(bashorat.aqi_bashorat);
-      document.getElementById('bashorat-blok').innerHTML =
-        `<span style="color:${rang};font-weight:700;font-size:1rem">${bashorat.aqi_bashorat}</span>
-         <span style="color:${rang}"> — ${bashorat.daraja || ''}</span><br>
-         <span style="color:var(--kulrang);font-size:0.78rem">${bashorat.xabar}</span>`;
-    } else {
-      document.getElementById('bashorat-blok').textContent = bashorat.xabar || 'Yetarli ma\'lumot yo\'q.';
-    }
+    document.getElementById('status-vaqt').textContent   = `🕐 ${vaqtFormatla(data.server_vaqt)}`;
+    document.getElementById('status-online').textContent = '● Online';
+    document.getElementById('status-online').className   = 'online-badge yashil';
 
-    // Status
-    document.getElementById('status-vaqt').textContent    = `🕐 ${vaqtFormatla(data.server_vaqt)}`;
-    document.getElementById('status-online').textContent  = '● Online';
-    document.getElementById('status-online').className    = 'online-badge yashil';
-
-  } catch {
+  } catch (err) {
+    console.error('Server xatosi:', err);
     document.getElementById('xato-bar').style.display     = 'block';
     document.getElementById('status-online').textContent  = '● Offline';
     document.getElementById('status-online').className    = 'online-badge qizil';
   }
 }
 
+// ─── LSTM bashorat yangilash funksiyasi ───
+async function bashoratYanila() {
+  try {
+    const [dataJavob, bJavob] = await Promise.all([
+      fetch('/api/data?soat=2', { cache: 'no-store' }),
+      fetch('/api/predict?' + new Date().getTime(), { cache: 'no-store' }),
+    ]);
+    const data     = await dataJavob.json();
+    const bashorat = await bJavob.json();
+    const tarix    = data.grafik || [];
+
+    // Qurilma offline bo'lsa LSTM kartasini kulranglashtirish
+    const lstmOxVaqt = data.oxirgi?.vaqt;
+    const lstmOffline = !lstmOxVaqt ||
+      (Date.now() - new Date(lstmOxVaqt).getTime() > 2 * 60 * 1000);
+
+    if (lstmOffline) {
+      document.getElementById('lstm-aqi-son').textContent      = '—';
+      document.getElementById('lstm-aqi-son').style.color      = '#64748b';
+      document.getElementById('lstm-daraja').textContent       = 'Qurilma offline';
+      document.getElementById('lstm-daraja').style.color       = '#64748b';
+      document.getElementById('lstm-trend').textContent        = '⊘ Bashorat mumkin emas';
+      document.getElementById('lstm-trend').style.color        = '#64748b';
+      document.getElementById('lstm-usul').textContent         = 'Offline';
+      document.getElementById('lstm-usul').style.color         = '#94a3b8';
+      document.getElementById('lstm-ishonch-foiz').textContent = '—%';
+      document.getElementById('lstm-progress').style.width     = '0%';
+      document.getElementById('lstm-xabar').textContent        = "Qurilma offline — bashorat mumkin emas.";
+      document.getElementById('lstm-karta').style.borderColor  = '#47556955';
+      document.getElementById('lstm-karta').style.opacity      = '0.6';
+      return;
+    }
+
+    // Qurilma online — LSTM kartasini normal ko'rinishga qaytarish
+    document.getElementById('lstm-karta').style.opacity = '1';
+
+    // ── Bashorat kartasini yangilash ──────────────────────
+    if (bashorat.aqi_bashorat != null) {
+      const rang = bashorat.rang || aqiRangi(bashorat.aqi_bashorat);
+
+      document.getElementById('lstm-aqi-son').textContent     = bashorat.aqi_bashorat;
+      document.getElementById('lstm-aqi-son').style.color     = rang;
+      document.getElementById('lstm-daraja').textContent      = bashorat.daraja || '';
+      document.getElementById('lstm-daraja').style.color      = rang;
+      document.getElementById('lstm-karta').style.borderColor = rang + '88';
+
+      // Usul badge
+      const usulEl = document.getElementById('lstm-usul');
+      if ((bashorat.usul || '').includes('lstm')) {
+        usulEl.textContent = '🧠 LSTM';
+        usulEl.style.color = '#10b981';
+      } else {
+        usulEl.textContent = '📊 Statistik';
+        usulEl.style.color = '#f59e0b';
+      }
+
+      // Ishonch progress bar
+      const foiz = Math.round((bashorat.ishonch || 0) * 100);
+      document.getElementById('lstm-ishonch-foiz').textContent = foiz + '%';
+      document.getElementById('lstm-progress').style.width     = foiz + '%';
+
+      // Trend (hozirgi AQI bilan solishtirish)
+      const hozirAqi = data.oxirgi?.aqi;
+      const trendEl  = document.getElementById('lstm-trend');
+      if (hozirAqi != null) {
+        const farq = bashorat.aqi_bashorat - hozirAqi;
+        if (farq > 10) {
+          trendEl.textContent = '📈 Yomonlashadi';
+          trendEl.style.color = '#ef4444';
+        } else if (farq < -10) {
+          trendEl.textContent = '📉 Yaxshilanadi';
+          trendEl.style.color = '#10b981';
+        } else {
+          trendEl.textContent = '➡️ Barqaror';
+          trendEl.style.color = '#94a3b8';
+        }
+      }
+
+      document.getElementById('lstm-xabar').textContent =
+        bashorat.tavsiya || bashorat.xabar || '';
+
+    } else {
+      document.getElementById('lstm-aqi-son').textContent = '—';
+      document.getElementById('lstm-daraja').textContent  = "Ma'lumot yig'ilmoqda";
+      document.getElementById('lstm-usul').textContent    = 'Kutilmoqda';
+      document.getElementById('lstm-xabar').textContent   =
+        bashorat.xabar || "Bashorat uchun yetarli ma'lumot yo'q.";
+    }
+
+    // ── Tahmin grafigini yangilash ────────────────────────
+    if (tarix.length > 0) {
+      const step   = Math.max(1, Math.ceil(tarix.length / 30));
+      const namuna = tarix.filter((_, i) => i % step === 0);
+
+      const oxirgiVaqt = new Date(namuna[namuna.length - 1].vaqt);
+      oxirgiVaqt.setHours(oxirgiVaqt.getHours() + 1);
+      const bashoratLabel = '⭐ ' + oxirgiVaqt.toLocaleTimeString('uz-UZ', {
+        timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit'
+      });
+
+      tahminGrafik.data.labels           = [...namuna.map(r => faqatVaqt(r.vaqt)), bashoratLabel];
+      tahminGrafik.data.datasets[0].data = [...namuna.map(r => r.aqi ?? null), null];
+      tahminGrafik.data.datasets[1].data = [
+        ...Array(namuna.length).fill(null),
+        bashorat.aqi_bashorat ?? null
+      ];
+      tahminGrafik._hozirIndex = namuna.length - 1;
+      tahminGrafik.update('none');
+    }
+
+    console.log('Bashorat yangilandi:', bashorat.aqi_bashorat, bashorat.usul);
+  } catch (e) {
+    console.error('Bashorat xato:', e);
+    document.getElementById('lstm-xabar').textContent = 'Bashorat yuklanmadi. Qayta urinilmoqda...';
+  }
+}
+
 // ─── Ishga tushirish ───
 sensorGridYarat();
-hammaNiBoshqaYangilaш();
-setInterval(hammaNiBoshqaYangilaш, 5000);   // har 5 sekundda yangilash
+aqiYanila();                                // AQI — darhol
+hammaNiBoshqaYangilaш();                    // Sensor + grafik — darhol
+bashoratYanila();                           // LSTM bashorat — darhol
+setInterval(aqiYanila,             10000);  // har 10 sekundda AQI yangilanadi
+setInterval(hammaNiBoshqaYangilaш, 10000);  // har 10 sekundda sensor/grafik yangilanadi
+setInterval(bashoratYanila,        30000);  // har 30 sekundda bashorat yangilanadi
 </script>
 </body>
 </html>

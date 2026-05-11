@@ -9,15 +9,16 @@
   ║     MQ-7   → GPIO 19  (DO, raqamli) — Uglerod oksidi (CO)  ║
   ║     DHT22  → GPIO 4   (data)        — Harorat va namlik     ║
   ║     OLED   → SDA=21, SCL=22 (I2C, 0x3C)                   ║
+  ║     BMP280 → SDA=21, SCL=22 (I2C, 0x76) — Bosim  ← YANGI ║
   ╠══════════════════════════════════════════════════════════════╣
   ║   Kerakli kutubxonalar (Arduino Library Manager):           ║
   ║     - ArduinoJson (Benoit Blanchon) v6+                     ║
   ║     - DHT sensor library (Adafruit)                         ║
   ║     - Adafruit SSD1306                                      ║
   ║     - Adafruit GFX Library                                  ║
+  ║     - Adafruit BMP280 Library                               ║
   ╠══════════════════════════════════════════════════════════════╣
   ║   Kelajakda qo'shilishi mumkin (hozir izohlangan):          ║
-  ║     - BMP280  → I2C (0x76/0x77) — harorat, namlik, bosim   ║
   ║     - SDS011  → UART (RX=16, TX=17) — PM2.5, PM10          ║
   ╚══════════════════════════════════════════════════════════════╝
 */
@@ -33,9 +34,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-// Kelajakdagi sensorlar uchun (hozir izoh, kerak bo'lganda oching):
-// #include <Adafruit_BMP280.h>      // BMP280 — harorat, bosim
-// #include <SoftwareSerial.h>       // SDS011 uchun UART
+// BMP280 bosim sensori kutubxonasi (Adafruit BMP280 Library)
+#include <Adafruit_BMP280.h>
+// #include <SoftwareSerial.h>       // SDS011 uchun UART (kelajakda)
 
 // ═══════════════════════════════════════════════════════════════
 // KONFIGURATSIYA — FAQAT SHU BO'LIMNI O'ZGARTIRING!
@@ -68,9 +69,8 @@ const bool ENABLE_MQ7    = true;    // GPIO 19 — ULANGAN
 const bool ENABLE_DHT22  = true;    // GPIO 4  — ULANGAN
 const bool ENABLE_OLED   = true;    // I2C (21/22) — ULANGAN
 
-// Kelajakdagi sensorlar (false qoldirilgan, hozir ulanmagan):
-// const bool ENABLE_BMP280 = false;   // I2C (0x76) — BMP280
-// const bool ENABLE_SDS011 = false;   // UART (16/17) — SDS011
+const bool ENABLE_BMP280 = true;    // I2C 0x76 — ULANGAN (yangi sensor)
+// const bool ENABLE_SDS011 = false;   // UART (16/17) — SDS011 (kelajakda)
 
 // ═══════════════════════════════════════════════════════════════
 // GPIO PINLARI
@@ -87,10 +87,9 @@ const int DHT22_PIN = 4;     // DHT22  data pini
 #define OLED_ADDRESS 0x3C    // I2C manzil (alternativ: 0x3D)
 #define OLED_RESET   -1      // Reset pini (-1 = ESP32 ichki reset)
 
-// Kelajakdagi qurilmalar uchun joy (hozir izoh):
-// #define BMP280_ADDRESS 0x76   // BMP280 I2C manzili
-// #define SDS011_RX_PIN  16     // SDS011 RX pini
-// #define SDS011_TX_PIN  17     // SDS011 TX pini
+#define BMP280_ADDRESS 0x76   // BMP280 I2C manzili (OLED bilan bir shinada)
+// #define SDS011_RX_PIN  16     // SDS011 RX pini (kelajakda)
+// #define SDS011_TX_PIN  17     // SDS011 TX pini (kelajakda)
 
 // ═══════════════════════════════════════════════════════════════
 // OBYEKTLAR
@@ -98,9 +97,8 @@ const int DHT22_PIN = 4;     // DHT22  data pini
 DHT           dht(DHT22_PIN, DHT_TYPE);
 Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &Wire, OLED_RESET);
 
-// Kelajakdagi obyektlar (hozir izoh):
-// Adafruit_BMP280 bmp;
-// SoftwareSerial  sdsSerial(SDS011_RX_PIN, SDS011_TX_PIN);
+Adafruit_BMP280 bmp;            // BMP280 bosim sensori obyekti (I2C)
+// SoftwareSerial  sdsSerial(SDS011_RX_PIN, SDS011_TX_PIN);  // SDS011 (kelajakda)
 
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL O'ZGARUVCHILAR
@@ -321,13 +319,16 @@ SensorData sensorlar_oqi() {
     }
   }
 
-  // ─── BMP280 (Harorat, Bosim) — KELAJAKDA ────────────────────
-  // if (ENABLE_BMP280) {
-  //   float t = bmp.readTemperature();
-  //   float p = bmp.readPressure() / 100.0F;  // Pa → hPa
-  //   if (!isnan(t) && t != 0) d.harorat = t;
-  //   if (!isnan(p) && p  > 0) d.bosim   = p;
-  // }
+  // ─── BMP280 (Atmosfera bosimi, hPa) ────────────────────────
+  if (ENABLE_BMP280) {
+    // readPressure() Pa qaytaradi → 100 ga bo'lib hPa ga o'tkazamiz
+    float bosim_pa = bmp.readPressure();
+    if (bosim_pa > 0 && !isnan(bosim_pa)) {
+      d.bosim = bosim_pa / 100.0F;
+    } else {
+      Serial.println("⚠️  BMP280 bosim o'qilmadi — null yuboriladi");
+    }
+  }
 
   // ─── SDS011 (PM2.5, PM10) — KELAJAKDA ──────────────────────
   // if (ENABLE_SDS011) {
@@ -621,31 +622,37 @@ void oled_sahifa2(const SensorData& d) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// OLED SAHIFA 3 — SERVER HOLATI
+// OLED SAHIFA 3 — BOSIM + SERVER HOLATI
 //
 //  ┌──────────────┐
-//  │ SERVER       │
+//  │ BOSIM/SERVER │
 //  │──────────────│
-//  │ IP: ...136   │
+//  │ Bosim: 1013.2│
 //  │ Yuborildi: 5 │
 //  │ Oxirgi: 14:30│
 //  │──────────────│
 //  │ Ulangan      │
 //  └──────────────┘
 // ═══════════════════════════════════════════════════════════════
-void oled_sahifa3() {
+void oled_sahifa3(const SensorData& d) {
   oled.clearDisplay();
   oled.setTextColor(SSD1306_WHITE);
   oled.setTextSize(1);
 
   // Sarlavha
-  oled.setCursor(34, 0);
-  oled.println("SERVER");
+  oled.setCursor(22, 0);
+  oled.println("BOSIM/SERVER");
   oled.drawLine(0, 9, 127, 9, SSD1306_WHITE);
 
-  // Server IP (oxirgi oktet)
+  // Atmosfera bosimi (BMP280 dan)
   oled.setCursor(0, 13);
-  oled.print("IP: ...136");
+  oled.print("Bosim: ");
+  if (!isnan(d.bosim)) {
+    oled.print(d.bosim, 1);
+    oled.print(" hPa");
+  } else {
+    oled.print("-- (ulanmagan)");
+  }
 
   // Yuborildi soni
   oled.setCursor(0, 24);
@@ -695,7 +702,7 @@ void oled_yangilash(const SensorData& d) {
     switch (joriy_sahifa) {
       case 0: oled_sahifa1(d); break;
       case 1: oled_sahifa2(d); break;
-      case 2: oled_sahifa3();  break;
+      case 2: oled_sahifa3(d); break;
     }
   }
 }
@@ -715,6 +722,7 @@ void setup() {
   Serial.println("║   MQ-135 → GPIO 23 | MQ-2 → GPIO 5            ║");
   Serial.println("║   MQ-7   → GPIO 19 | DHT22 → GPIO 4           ║");
   Serial.println("║   OLED   → SDA=21, SCL=22 (I2C, 0x3C)         ║");
+  Serial.println("║   BMP280 → SDA=21, SCL=22 (I2C, 0x76)  ← YANGI║");
   Serial.println("╚════════════════════════════════════════════════╝\n");
 
   // ─── OLED ni ishga tushirish ───────────────────────────────
@@ -758,13 +766,16 @@ void setup() {
     Serial.println("   ✅ DHT22  — GPIO 4  (Harorat/Namlik)");
   }
 
-  // Kelajakdagi sensorlar uchun joy (hozir izoh):
-  // if (ENABLE_BMP280) {
-  //   if (bmp.begin(BMP280_ADDRESS))
-  //     Serial.println("   ✅ BMP280 — I2C 0x76 (Harorat/Bosim)");
-  //   else
-  //     Serial.println("   ❌ BMP280 topilmadi!");
-  // }
+  // BMP280 bosim sensori ishga tushirish
+  if (ENABLE_BMP280) {
+    if (bmp.begin(BMP280_ADDRESS)) {
+      Serial.println("   ✅ BMP280 — I2C 0x76 (Bosim sensori, hPa)");
+    } else {
+      // Sensor topilmasa ham tizim to'xtamaydi — bosim null yuboriladi
+      Serial.println("   ⚠️  BMP280 topilmadi! SDA=21, SCL=22, manzil 0x76 tekshiring");
+      Serial.println("       Tizim davom etadi — bosim null bo'ladi");
+    }
+  }
   // if (ENABLE_SDS011) {
   //   sdsSerial.begin(9600);
   //   Serial.println("   ✅ SDS011 — UART RX=16, TX=17 (PM2.5/PM10)");
