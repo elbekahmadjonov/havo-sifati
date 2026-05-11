@@ -163,35 +163,48 @@ async function tarixYukla(soat) {
   if (btnMap[soat]) document.getElementById(`btn-${btnMap[soat]}`).className = 'btn btn-primary btn-sm';
 
   try {
+    // limit=500 — server max chegarasi (le=500). grafik soat bo'yicha keladi, limitdan mustaqil.
     const [dJavob, statJavob] = await Promise.all([
-      fetch(`/api/data?limit=2000&soat=${soat}`),
-      fetch(`/api/stats?soat=${soat}`),
+      fetch(`/api/data?limit=500&soat=${soat}`, { cache: 'no-store' }),
+      fetch(`/api/stats?soat=${soat}`,          { cache: 'no-store' }),
     ]);
     const d    = await dJavob.json();
     const stat = await statJavob.json();
 
+    console.log('Ma\'lumotlar:', d);
+
+    if (!d.grafik) {
+      console.error('Grafik maydoni yo\'q. Server javobi:', d);
+      return;
+    }
+
     // Statistika yangilash
-    document.getElementById('stat-jami').textContent    = stat.olchov_soni    ?? '—';
-    document.getElementById('stat-aqi-orta').textContent = stat.aqi?.orta     ?? '—';
-    document.getElementById('stat-aqi-max').textContent  = stat.aqi?.max      ?? '—';
-    document.getElementById('stat-aqi-min').textContent  = stat.aqi?.min      ?? '—';
-    document.getElementById('stat-harorat').textContent  = stat.harorat?.orta ? `${stat.harorat.orta}°C` : '—';
-    document.getElementById('stat-pm25').textContent     = stat.pm25?.orta    ? `${stat.pm25.orta}` : '—';
+    document.getElementById('stat-jami').textContent     = stat.olchov_soni    ?? '—';
+    document.getElementById('stat-aqi-orta').textContent = stat.aqi?.orta      ?? '—';
+    document.getElementById('stat-aqi-max').textContent  = stat.aqi?.max       ?? '—';
+    document.getElementById('stat-aqi-min').textContent  = stat.aqi?.min       ?? '—';
+    document.getElementById('stat-harorat').textContent  = stat.harorat?.orta  ? `${stat.harorat.orta}°C` : '—';
+    document.getElementById('stat-pm25').textContent     = stat.pm25?.orta     ? `${stat.pm25.orta}` : '—';
     document.getElementById('jami-yozuv').textContent    = `Jami bazada: ${stat.jami_baza} ta o'lchov`;
 
     // Vaqt labellari
-    const labels = d.grafik.map(r => joriyOraliqSoat <= 24 ? faqatVaqt(r.vaqt) : vaqtFormatla(r.vaqt).slice(0,10));
+    const labels  = d.grafik.map(r =>
+      joriyOraliqSoat <= 24 ? faqatVaqt(r.vaqt) : vaqtFormatla(r.vaqt).slice(0, 10)
+    );
+    const aqiData = d.grafik.map(r => r.aqi ?? null);
+    console.log('AQI qiymatlar:', aqiData);
+    console.log('Labellar soni:', labels.length);
 
     // AQI grafigi
-    aqiGrafik.data.labels             = labels;
-    aqiGrafik.data.datasets[0].data   = d.grafik.map(r => r.aqi ?? null);
+    aqiGrafik.data.labels           = labels;
+    aqiGrafik.data.datasets[0].data = aqiData;
     aqiGrafik.update('none');
 
     // MQ grafigi
     mqGrafik.data.labels              = labels;
-    mqGrafik.data.datasets[0].data    = d.grafik.map(r => r.mq135);
-    mqGrafik.data.datasets[1].data    = d.grafik.map(r => r.mq2);
-    mqGrafik.data.datasets[2].data    = d.grafik.map(r => r.mq7);
+    mqGrafik.data.datasets[0].data    = d.grafik.map(r => r.mq135 ?? null);
+    mqGrafik.data.datasets[1].data    = d.grafik.map(r => r.mq2   ?? null);
+    mqGrafik.data.datasets[2].data    = d.grafik.map(r => r.mq7   ?? null);
     mqGrafik.update('none');
 
     // Jadval

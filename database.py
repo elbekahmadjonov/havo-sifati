@@ -85,6 +85,17 @@ def oxirgi_olchov() -> dict | None:
     return dict(row) if row else None
 
 
+def qurilma_onlinemi(device_id: str = "esp32_001", daqiqa: int = 2) -> bool:
+    """Oxirgi o'lchov daqiqa ichida kelgan bo'lsa True qaytaradi."""
+    chegara = (datetime.now(TOSHKENT_TZ) - timedelta(minutes=daqiqa)).isoformat()
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM measurements WHERE device_id = ? AND vaqt >= ?",
+            (device_id, chegara)
+        ).fetchone()
+    return row[0] > 0
+
+
 def vaqt_oraligi_malumotlar(soat: int = 1) -> list[dict]:
     """Berilgan soat oralig'idagi yozuvlar (grafik uchun, vaqt bo'yicha o'sish tartibida)."""
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(hours=soat)).isoformat()

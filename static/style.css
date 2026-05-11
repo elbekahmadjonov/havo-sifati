@@ -244,6 +244,22 @@ body {
   font-size: 0.85rem;
 }
 
+/* ─── Qurilma offline banneri ─── */
+.offline-banner {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid #ef4444;
+  border-left: 4px solid #ef4444;
+  color: #f87171;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* ─── Tugmalar ─── */
 .btn {
   padding: 0.45rem 1.1rem;
@@ -370,4 +386,28 @@ tbody td { padding: 0.6rem 0.9rem; }
 
 @media (max-width: 400px) {
   .sensor-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── 3-ustunli grid ─── */
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ─── LSTM Bashorat kartasi ─── */
+.lstm-karta {
+  border: 2px solid rgba(59,130,246,0.35);
+  background: linear-gradient(160deg, #1a2744 0%, #1e293b 100%);
+  transition: border-color 0.4s, box-shadow 0.4s;
+}
+
+@media (max-width: 960px) {
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .grid-3 > :last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-3 > :last-child { grid-column: auto; }
 }
