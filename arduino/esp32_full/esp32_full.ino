@@ -287,9 +287,9 @@ SensorData sensorlar_oqi() {
   SensorData d;
 
   // ─── MQ-135 (CO₂, NH₃, Benzol) ────────────────────────────
+  // DO: HIGH=1 → toza havo  |  LOW=0 → gaz aniqlandi
   if (ENABLE_MQ135) {
     d.mq135 = digitalRead(MQ135_PIN);
-    // DO: HIGH=1 → toza havo  |  LOW=0 → gaz aniqlandi
   }
 
   // ─── MQ-2 (Metan, LPG, Tutun, Vodorod) ────────────────────
@@ -298,8 +298,18 @@ SensorData sensorlar_oqi() {
   }
 
   // ─── MQ-7 (Uglerod oksidi — CO) ────────────────────────────
+  // analogRead ulanganlikni tekshiradi: ADC-capable pin bo'lsa > 100,
+  // GPIO 19 ADC pin emas → raw=0 → uzilgan aniqlanadi → null yuboriladi
   if (ENABLE_MQ7) {
-    d.mq7 = digitalRead(MQ7_PIN);
+    int mq7_raw = analogRead(MQ7_PIN);
+    bool mq7_ulangan = (mq7_raw > 100);
+    if (mq7_ulangan) {
+      d.mq7 = digitalRead(MQ7_PIN);
+    } else {
+      Serial.print("⚠️  MQ-7 ulanmagan (analogRead=");
+      Serial.print(mq7_raw);
+      Serial.println(") — null yuboriladi");
+    }
   }
 
   // ─── DHT22 (Harorat va Namlik) ──────────────────────────────
@@ -749,17 +759,18 @@ void setup() {
   // ─── Sensor pinlarini sozlash ──────────────────────────────
   Serial.println("⚙️  Sensorlar sozlanmoqda...");
 
+  // INPUT_PULLUP: suzuvchi pin tasodifiy LOW o'qishini oldini oladi
   if (ENABLE_MQ135) {
-    pinMode(MQ135_PIN, INPUT);
-    Serial.println("   ✅ MQ-135 — GPIO 23 (CO₂/NH₃/Benzol)");
+    pinMode(MQ135_PIN, INPUT_PULLUP);
+    Serial.println("   ✅ MQ-135 — GPIO 23 (CO₂/NH₃/Benzol, INPUT_PULLUP)");
   }
   if (ENABLE_MQ2) {
-    pinMode(MQ2_PIN, INPUT);
-    Serial.println("   ✅ MQ-2   — GPIO 5  (Metan/LPG/Tutun)");
+    pinMode(MQ2_PIN, INPUT_PULLUP);
+    Serial.println("   ✅ MQ-2   — GPIO 5  (Metan/LPG/Tutun, INPUT_PULLUP)");
   }
   if (ENABLE_MQ7) {
-    pinMode(MQ7_PIN, INPUT);
-    Serial.println("   ✅ MQ-7   — GPIO 19 (Uglerod oksidi)");
+    pinMode(MQ7_PIN, INPUT_PULLUP);
+    Serial.println("   ✅ MQ-7   — GPIO 19 (Uglerod oksidi, INPUT_PULLUP)");
   }
   if (ENABLE_DHT22) {
     dht.begin();
