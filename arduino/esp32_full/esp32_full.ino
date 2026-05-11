@@ -53,7 +53,7 @@ const char* SERVER_URL    = "http://192.168.62.245:8000/api/sensor";
 const char* DEVICE_ID     = "esp32_001";
 
 // Ma'lumot yuborish oralig'i (millisekund)
-const unsigned long YUBORISH_INTERVALI = 30000;   // 30 sekund
+const unsigned long YUBORISH_INTERVALI = 10000;   // 10 sekund
 
 // OLED sahifa almashish vaqti (millisekund)
 const unsigned long SAHIFA_INTERVAL    = 5000;    // 5 sekund

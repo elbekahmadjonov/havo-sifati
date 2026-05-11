@@ -472,7 +472,7 @@ async function hammaNiBoshqaYangilaш() {
 
     // Sensor kartalar — qurilma offline bo'lsa "Aloqa yo'q" ko'rsatish
     const oxVaqt    = data.oxirgi?.vaqt;
-    const offline   = !oxVaqt || (Date.now() - new Date(oxVaqt).getTime() > 2 * 60 * 1000);
+    const offline   = !oxVaqt || (Date.now() - new Date(oxVaqt).getTime() > 30 * 1000);
     if (offline) {
       SENSORLAR.forEach(sensorKartaOffline);
     } else {
@@ -506,7 +506,7 @@ async function bashoratYanila() {
     // Qurilma offline bo'lsa LSTM kartasini kulranglashtirish
     const lstmOxVaqt = data.oxirgi?.vaqt;
     const lstmOffline = !lstmOxVaqt ||
-      (Date.now() - new Date(lstmOxVaqt).getTime() > 2 * 60 * 1000);
+      (Date.now() - new Date(lstmOxVaqt).getTime() > 30 * 1000);
 
     if (lstmOffline) {
       document.getElementById('lstm-aqi-son').textContent      = '—';

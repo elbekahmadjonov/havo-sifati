@@ -85,8 +85,8 @@ def oxirgi_olchov() -> dict | None:
     return dict(row) if row else None
 
 
-def qurilma_onlinemi(device_id: str = "esp32_001", daqiqa: int = 2) -> bool:
-    """Oxirgi o'lchov daqiqa ichida kelgan bo'lsa True qaytaradi."""
+def qurilma_onlinemi(device_id: str = "esp32_001", daqiqa: float = 0.5) -> bool:
+    """Oxirgi o'lchov 30 sekund ichida kelgan bo'lsa True qaytaradi."""
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(minutes=daqiqa)).isoformat()
     with get_db() as conn:
         row = conn.execute(
