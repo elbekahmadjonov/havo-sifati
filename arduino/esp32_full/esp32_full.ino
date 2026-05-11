@@ -4,9 +4,9 @@
   ║   Diplom ishi, 2025-2026                                    ║
   ╠══════════════════════════════════════════════════════════════╣
   ║   Ulangan sensorlar:                                        ║
-  ║     MQ-135 → GPIO 23  (DO, raqamli) — CO₂/NH₃/Benzol      ║
-  ║     MQ-2   → GPIO 5   (DO, raqamli) — Metan/LPG/Tutun      ║
-  ║     MQ-7   → GPIO 19  (DO, raqamli) — Uglerod oksidi (CO)  ║
+  ║     MQ-135 → DO:GPIO23 AO:GPIO35 — CO₂/NH₃/Benzol          ║
+  ║     MQ-2   → DO:GPIO5  AO:GPIO32 — Metan/LPG/Tutun         ║
+  ║     MQ-7   → DO:GPIO19 AO:GPIO34 — Uglerod oksidi (CO)     ║
   ║     DHT22  → GPIO 4   (data)        — Harorat va namlik     ║
   ║     OLED   → SDA=21, SCL=22 (I2C, 0x3C)                   ║
   ║     BMP280 → SDA=21, SCL=22 (I2C, 0x76) — Bosim  ← YANGI ║
@@ -75,10 +75,14 @@ const bool ENABLE_BMP280 = true;    // I2C 0x76 — ULANGAN (yangi sensor)
 // ═══════════════════════════════════════════════════════════════
 // GPIO PINLARI
 // ═══════════════════════════════════════════════════════════════
-const int MQ135_PIN = 23;    // MQ-135 raqamli chiqishi (DO)
-const int MQ2_PIN   = 5;     // MQ-2   raqamli chiqishi (DO)
-const int MQ7_PIN   = 19;    // MQ-7   raqamli chiqishi (DO)
-const int DHT22_PIN = 4;     // DHT22  data pini
+const int MQ135_PIN    = 23;  // MQ-135 raqamli chiqishi (DO)
+const int MQ2_PIN      = 5;   // MQ-2   raqamli chiqishi (DO)
+const int MQ7_PIN      = 19;  // MQ-7   raqamli chiqishi (DO)
+// AO (analog out) pinlari — uzilish aniqlash uchun (ADC1, input-only)
+const int MQ135_AO_PIN = 35;  // MQ-135 analog chiqishi → ADC1_CH7
+const int MQ2_AO_PIN   = 32;  // MQ-2   analog chiqishi → ADC1_CH4
+const int MQ7_AO_PIN   = 34;  // MQ-7   analog chiqishi → ADC1_CH6
+const int DHT22_PIN    = 4;   // DHT22  data pini
 #define   DHT_TYPE  DHT22    // DHT sensor turi
 
 // OLED ekran sozlamalari
@@ -287,28 +291,36 @@ SensorData sensorlar_oqi() {
   SensorData d;
 
   // ─── MQ-135 (CO₂, NH₃, Benzol) ────────────────────────────
-  // DO: HIGH=1 → toza havo  |  LOW=0 → gaz aniqlandi
+  // AO > 500 → sensor ulangan; AO < 500 → uzilgan → null yuboriladi
   if (ENABLE_MQ135) {
-    d.mq135 = digitalRead(MQ135_PIN);
+    int ao = analogRead(MQ135_AO_PIN);   // GPIO 35 — ADC1_CH7
+    Serial.print("   MQ-135 AO: "); Serial.println(ao);
+    if (ao >= 500) {
+      d.mq135 = digitalRead(MQ135_PIN);
+    } else {
+      Serial.println("   ⚠️  MQ-135 ulanmagan (AO < 500) — null yuboriladi");
+    }
   }
 
   // ─── MQ-2 (Metan, LPG, Tutun, Vodorod) ────────────────────
   if (ENABLE_MQ2) {
-    d.mq2 = digitalRead(MQ2_PIN);
+    int ao = analogRead(MQ2_AO_PIN);     // GPIO 32 — ADC1_CH4
+    Serial.print("   MQ-2   AO: "); Serial.println(ao);
+    if (ao >= 500) {
+      d.mq2 = digitalRead(MQ2_PIN);
+    } else {
+      Serial.println("   ⚠️  MQ-2 ulanmagan (AO < 500) — null yuboriladi");
+    }
   }
 
   // ─── MQ-7 (Uglerod oksidi — CO) ────────────────────────────
-  // analogRead ulanganlikni tekshiradi: ADC-capable pin bo'lsa > 100,
-  // GPIO 19 ADC pin emas → raw=0 → uzilgan aniqlanadi → null yuboriladi
   if (ENABLE_MQ7) {
-    int mq7_raw = analogRead(MQ7_PIN);
-    bool mq7_ulangan = (mq7_raw > 100);
-    if (mq7_ulangan) {
+    int ao = analogRead(MQ7_AO_PIN);     // GPIO 34 — ADC1_CH6
+    Serial.print("   MQ-7   AO: "); Serial.println(ao);
+    if (ao >= 500) {
       d.mq7 = digitalRead(MQ7_PIN);
     } else {
-      Serial.print("⚠️  MQ-7 ulanmagan (analogRead=");
-      Serial.print(mq7_raw);
-      Serial.println(") — null yuboriladi");
+      Serial.println("   ⚠️  MQ-7 ulanmagan (AO < 500) — null yuboriladi");
     }
   }
 
@@ -454,21 +466,21 @@ void serial_log(const SensorData& d) {
     if (d.mq135 >= 0)
       Serial.println(d.mq135 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
     else
-      Serial.println("-- (o'qilmadi)");
+      Serial.println("⚠️  Ulanmagan (AO < 500, null yuborildi)");
   }
   if (ENABLE_MQ2) {
     Serial.print("🔥 MQ-2   (Metan/LPG/Tutun) : ");
     if (d.mq2 >= 0)
       Serial.println(d.mq2 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
     else
-      Serial.println("-- (o'qilmadi)");
+      Serial.println("⚠️  Ulanmagan (AO < 500, null yuborildi)");
   }
   if (ENABLE_MQ7) {
     Serial.print("💨 MQ-7   (Uglerod oksidi)  : ");
     if (d.mq7 >= 0)
       Serial.println(d.mq7 == 1 ? "✅ TOZA  (CO aniqlanmadi)" : "🚨 XAVF! CO ANIQLANDI!");
     else
-      Serial.println("-- (o'qilmadi)");
+      Serial.println("⚠️  Ulanmagan (AO < 500, null yuborildi)");
   }
 
   Serial.println("──────────────────────────────────────────────");
@@ -729,10 +741,9 @@ void setup() {
   Serial.println("║   Havo Sifati Monitoringi — ESP32 v3.0        ║");
   Serial.println("║   Diplom loyihasi, 2025-2026                   ║");
   Serial.println("╠════════════════════════════════════════════════╣");
-  Serial.println("║   MQ-135 → GPIO 23 | MQ-2 → GPIO 5            ║");
-  Serial.println("║   MQ-7   → GPIO 19 | DHT22 → GPIO 4           ║");
-  Serial.println("║   OLED   → SDA=21, SCL=22 (I2C, 0x3C)         ║");
-  Serial.println("║   BMP280 → SDA=21, SCL=22 (I2C, 0x76)  ← YANGI║");
+  Serial.println("║   MQ-135 DO:GPIO23 AO:GPIO35 | MQ-2 DO:5 AO:32 ║");
+  Serial.println("║   MQ-7   DO:GPIO19 AO:GPIO34 | DHT22: GPIO4    ║");
+  Serial.println("║   OLED  SDA=21,SCL=22 (0x3C) | BMP280 (0x76)  ║");
   Serial.println("╚════════════════════════════════════════════════╝\n");
 
   // ─── OLED ni ishga tushirish ───────────────────────────────
