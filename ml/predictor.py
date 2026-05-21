@@ -1,14 +1,3 @@
-"""
-Havo Sifati Bashorat Klasi — PyTorch LSTM model interfeysi
-===========================================================
-O'rgatilgan model asosida real vaqt AQI bashorati.
-
-Ishlatish:
-    from ml.predictor import HavoBashorati
-    b = HavoBashorati()
-    natija = b.predict_next_hour(last_24_olchovlar)
-"""
-
 import logging
 import numpy as np
 import joblib
@@ -16,16 +5,13 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-# ── Yo'llar ──────────────────────────────────────────────────
 _ML_DIR     = Path(__file__).parent
 MODEL_YOLI  = _ML_DIR / "models" / "lstm_model.pth"
 SCALER_YOLI = _ML_DIR / "models" / "scaler.pkl"
 
-# ── Sozlamalar ────────────────────────────────────────────────
 FEATURES    = ["harorat", "namlik", "mq135", "mq2", "mq7", "aqi"]
 VAQT_QADAMI = 24
 
-# ── AQI darajalari ────────────────────────────────────────────
 _AQI_DARAJALARI = [
     (0,   50,  "Yaxshi",                      "#10b981", "🟢"),
     (51,  100, "O'rtacha",                    "#f59e0b", "🟡"),
@@ -35,7 +21,6 @@ _AQI_DARAJALARI = [
     (301, 500, "Xavfli",                      "#78350f", "⚫"),
 ]
 
-# ── O'zbek tilidagi tavsiyalar ────────────────────────────────
 _AQI_TAVSIYALAR = [
     (0,   50,  "Havo a'lo! Tashqarida sport va faol hayot kechirish mumkin. 🌿"),
     (51,  100, "Havo qoniqarli. Sezgir odamlar uzoq muddatli mashqlarni cheklashi tavsiya etiladi. 😊"),
@@ -46,12 +31,7 @@ _AQI_TAVSIYALAR = [
 ]
 
 
-# ═══════════════════════════════════════════════════════════════
-# PYTORCH MODEL ARXITEKTURASI (train_model.py bilan bir xil)
-# ═══════════════════════════════════════════════════════════════
-
 def _model_arxitekturasi():
-    """PyTorch import va LSTMModel klassi."""
     import torch
     import torch.nn as nn
 
@@ -77,10 +57,6 @@ def _model_arxitekturasi():
     return torch, LSTMModel
 
 
-# ═══════════════════════════════════════════════════════════════
-# YORDAMCHI FUNKSIYALAR
-# ═══════════════════════════════════════════════════════════════
-
 def _daraja_info(aqi: int) -> dict:
     for lo, hi, daraja, rang, emoji in _AQI_DARAJALARI:
         if lo <= aqi <= hi:
@@ -89,7 +65,6 @@ def _daraja_info(aqi: int) -> dict:
 
 
 def get_recommendation(aqi: int) -> str:
-    """AQI qiymatiga qarab o'zbek tilidagi tavsiya."""
     for lo, hi, tavsiya in _AQI_TAVSIYALAR:
         if lo <= aqi <= hi:
             return tavsiya
@@ -97,27 +72,13 @@ def get_recommendation(aqi: int) -> str:
 
 
 def _teskari_masshtablash(y_skalyangan: float, scaler) -> float:
-    """Skalyangan AQI qiymatini original AQI birligigiga qaytarish."""
-    aqi_i       = FEATURES.index("aqi")
-    temp        = np.zeros((1, len(FEATURES)), dtype=np.float32)
+    aqi_i          = FEATURES.index("aqi")
+    temp           = np.zeros((1, len(FEATURES)), dtype=np.float32)
     temp[0, aqi_i] = y_skalyangan
     return float(scaler.inverse_transform(temp)[0, aqi_i])
 
 
-# ═══════════════════════════════════════════════════════════════
-# ASOSIY KLASS
-# ═══════════════════════════════════════════════════════════════
-
 class HavoBashorati:
-    """
-    LSTM model asosida havo sifati AQI bashorati.
-
-    Metodlar:
-        load_model()                 → modelni qayta yuklash
-        predict_next_hour(olchovlar) → keyingi AQI bashorati
-        predict_trend(olchovlar)     → tendensiya ("yaxshilanadi" / ...)
-        get_recommendation(aqi)      → o'zbek tilidagi tavsiya
-    """
 
     def __init__(self):
         self.model  = None
@@ -126,16 +87,11 @@ class HavoBashorati:
         self.load_model()
 
     def load_model(self) -> bool:
-        """
-        Diskdan PyTorch modeli va scalerni yuklash.
-        Muvaffaqiyatli yuklansa True, aks holda False qaytaradi.
-        """
         try:
             torch, LSTMModel = _model_arxitekturasi()
             self._torch = torch
 
-            checkpoint = torch.load(str(MODEL_YOLI), map_location="cpu",
-                                    weights_only=False)
+            checkpoint = torch.load(str(MODEL_YOLI), map_location="cpu", weights_only=False)
             mdl = LSTMModel(
                 input_size=checkpoint.get("input_size", len(FEATURES)),
                 hidden1=checkpoint.get("hidden1", 64),
@@ -161,7 +117,6 @@ class HavoBashorati:
         return False
 
     def _dict_listdan_massiv(self, olchovlar: list) -> np.ndarray:
-        """List[dict] → np.ndarray (n, len(FEATURES))."""
         qatorlar = []
         for m in olchovlar:
             qatorlar.append([
@@ -175,13 +130,6 @@ class HavoBashorati:
         return np.array(qatorlar, dtype=np.float32)
 
     def predict_next_hour(self, last_24_olchovlar: list) -> dict:
-        """
-        Keyingi 1 soatlik AQI bashorati.
-
-        Parametrlar:
-            last_24_olchovlar: list[dict] — oxirgi o'lchovlar
-                               (ideal: 24 soatlik, kamida 5 ta)
-        """
         if self.model is None:
             return self._statistik_bashorat(last_24_olchovlar)
 
@@ -195,13 +143,12 @@ class HavoBashorati:
         try:
             arr = self._dict_listdan_massiv(last_24_olchovlar[-VAQT_QADAMI:])
 
-            # Vaqt qadamini to'ldirish (yetarlicha yozuv bo'lmasa)
             if len(arr) < VAQT_QADAMI:
                 pad = np.tile(arr[0], (VAQT_QADAMI - len(arr), 1))
                 arr = np.vstack([pad, arr])
 
             arr_scaled = self.scaler.transform(arr)
-            X = self._torch.tensor(arr_scaled).unsqueeze(0)   # (1, 24, 6)
+            X = self._torch.tensor(arr_scaled).unsqueeze(0)
 
             with self._torch.no_grad():
                 y_scaled = float(self.model(X).item())
@@ -227,10 +174,6 @@ class HavoBashorati:
             return self._statistik_bashorat(last_24_olchovlar)
 
     def predict_trend(self, olchovlar: list) -> str:
-        """
-        AQI tendensiyasini aniqlash.
-        Qaytaradi: "yaxshilanadi" | "yomonlashadi" | "barqaror"
-        """
         aqilar = [m["aqi"] for m in olchovlar if m.get("aqi") is not None]
         if len(aqilar) < 4:
             return "barqaror"
@@ -246,7 +189,6 @@ class HavoBashorati:
         return "barqaror"
 
     def _statistik_bashorat(self, olchovlar: list) -> dict:
-        """Eksponensial og'irlikli o'rtacha — zaxira usul."""
         import statistics
 
         aqilar = [m["aqi"] for m in (olchovlar or [])[-12:] if m.get("aqi") is not None]

@@ -1,17 +1,8 @@
-"""
-Havo Sifati Bashorat Moduli — Server Interfeysi
-================================================
-LSTM model mavjud bo'lsa → ml.predictor.HavoBashorati (aniq)
-LSTM model yo'q bo'lsa  → statistik zaxira usul (kamroq aniq)
-
-Ikki holda ham bir xil API: server.py o'zgartirmasdan ishlaydi.
-"""
 import logging
 import statistics
 
 log = logging.getLogger(__name__)
 
-# ── LSTM modulini yuklashga urinish ──────────────────────────
 _lstm_bashorat = None
 _lstm_faol     = False
 
@@ -32,18 +23,7 @@ except Exception as exc:
     log.warning("⚠️  ML modul xatosi (%s) — statistik rejim faol.", exc)
 
 
-# ═══════════════════════════════════════════════════════════════
-# SERVER UCHUN ASOSIY KLASS
-# ═══════════════════════════════════════════════════════════════
-
 class HavoSifatBashorati:
-    """
-    Server (server.py) tomonidan ishlatiladigan bashorat interfeysi.
-
-    server.py quyidagicha ishlatadi:
-        bashorat_modeli = ml_predictor.HavoSifatBashorati()
-        natija = bashorat_modeli.predict_next_hour(tarix)
-    """
 
     def __init__(self):
         self._ml   = _lstm_bashorat
@@ -51,27 +31,12 @@ class HavoSifatBashorati:
         rejim = "LSTM neyron tarmog'i" if self._faol else "Statistik (zaxira)"
         log.info("🤖 Bashorat rejimi: %s", rejim)
 
-    # ── Asosiy bashorat ───────────────────────────────────────
-
     def predict_next_hour(self, oxirgi_olchovlar: list[dict]) -> dict:
-        """
-        Keyingi 1 soatlik AQI bashorati.
-
-        Parametrlar:
-            oxirgi_olchovlar: database.vaqt_oraligi_malumotlar() dan kelgan ro'yxat
-
-        Qaytaradi:
-            {aqi_bashorat, ishonch, usul, daraja, rang, xabar, tavsiya}
-        """
         if self._faol and len(oxirgi_olchovlar) >= 5:
             return self._ml.predict_next_hour(oxirgi_olchovlar)
         return self._statistik_bashorat(oxirgi_olchovlar)
 
     def detect_anomaly(self, hozirgi: dict, tarix: list[dict]) -> dict:
-        """
-        Anomaliya aniqlash (Z-score statistik usuli).
-        Kelajakda: LSTM Autoencoder reconstruction error.
-        """
         if len(tarix) < 5 or not hozirgi.get("aqi"):
             return {"anomaliya": False, "sabablar": [], "daraja": "normal", "z_ball": 0.0}
 
@@ -99,13 +64,7 @@ class HavoSifatBashorati:
             "z_ball":    round(z, 2),
         }
 
-    # ── Statistik zaxira ─────────────────────────────────────
-
     def _statistik_bashorat(self, olchovlar: list[dict]) -> dict:
-        """
-        Eksponensial og'irlikli o'rtacha.
-        Yangi qiymatlar ko'proq ta'sir qiladi (og'irlik 1.2^i).
-        """
         if not olchovlar:
             return {
                 "aqi_bashorat": None, "ishonch": 0.0,

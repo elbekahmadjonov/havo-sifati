@@ -1,7 +1,3 @@
-"""
-Havo Sifati Monitoringi — Asosiy FastAPI Server v2.0
-Diplom ishi: "Havo sifatining bashoratli monitoringi uchun aqlli qurilma va dasturiy ta'minot"
-"""
 import io
 import csv
 import logging
@@ -22,7 +18,6 @@ import aqi_calculator
 import ml_predictor
 import telegram_alert
 
-# ─── Logging sozlamasi ───
 Path("logs").mkdir(exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
@@ -39,7 +34,6 @@ TOSHKENT_TZ = timezone(timedelta(hours=5))
 
 
 def _vaqt_farq_matn(vaqt_str: str | None) -> str:
-    """Oxirgi o'lchov vaqtidan qancha o'tganligini o'zbek tilida qaytaradi."""
     if not vaqt_str:
         return "Noma'lum"
     try:
@@ -52,18 +46,18 @@ def _vaqt_farq_matn(vaqt_str: str | None) -> str:
     except Exception:
         return "Noma'lum"
 
-# ─── ML bashorat modeli ───
+
 bashorat_modeli = ml_predictor.HavoSifatBashorati()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     database.db_yaratish()
-    log.info("🚀 Server muvaffaqiyatli ishga tushdi!")
-    log.info("📡 ESP32 -> POST /api/sensor")
-    log.info("🌐 Dashboard -> http://localhost:8000")
+    log.info("Server ishga tushdi")
+    log.info("ESP32 -> POST /api/sensor")
+    log.info("Dashboard -> http://localhost:8000")
     yield
-    log.info("🛑 Server to'xtatildi.")
+    log.info("Server to'xtatildi")
 
 
 app = FastAPI(
@@ -83,7 +77,6 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# ─── Pydantic modeli — ESP32 yuboradigan JSON ───
 class SensorMalumot(BaseModel):
     device_id: str           = "esp32_001"
     mq135:     Optional[int]   = None
@@ -96,35 +89,24 @@ class SensorMalumot(BaseModel):
     pm10:      Optional[float] = None
 
 
-# ═══════════════════════════════════════════════════
-# API ENDPOINTLAR
-# ═══════════════════════════════════════════════════
-
 @app.post("/api/sensor", summary="ESP32 dan sensor ma'lumotlari qabul qilish")
 async def sensor_qabul(m: SensorMalumot):
-    """
-    ESP32 har 30 sekundda shu endpointga JSON POST yuboradi.
-    Null qiymatlar — sensor hali ulanmagan degani.
-    """
     data = m.model_dump()
 
-    # AQI hisoblash
     aqi      = aqi_calculator.get_overall_aqi(data)
     data["aqi"] = aqi
     kat      = aqi_calculator.get_aqi_category(aqi)
 
-    # Bazaga saqlash
     yozuv_id = database.malumot_saqlash(data)
 
-    # Telegram ogohlantirish (agar kerak bo'lsa)
     sensor_holat = {k: data.get(k) for k in ("mq135", "mq2", "mq7", "pm25", "pm10", "harorat")}
     telegram_alert.aqi_tekshir_va_xabarlash(aqi, kat["daraja"], sensor_holat)
 
-    # Har 200 ta yozuvda eski ma'lumotlarni tozalash
     if yozuv_id % 200 == 0:
         database.eski_malumot_tozalash()
 
-    log.info("📥 ID:%-4d | AQI:%-3d (%s) | %s", yozuv_id, aqi, kat["daraja"], m.device_id)
+    # TODO: statistika yangilash kerak
+    log.info("ID:%-4d AQI:%-3d (%s) | %s", yozuv_id, aqi, kat["daraja"], m.device_id)
 
     return {
         "status":  "ok",
@@ -141,26 +123,21 @@ async def api_data(
     soat:   int = Query(1,   ge=1,  le=720),
     offset: int = Query(0,   ge=0),
 ):
-    """
-    soat  — grafik uchun qancha soatlik ma'lumot (1, 24, 168, 720)
-    limit — jadval uchun yozuvlar soni
-    """
     grafik = database.vaqt_oraligi_malumotlar(soat)
     jadval = database.jadval_malumotlar(limit, offset)
     oxirgi = database.oxirgi_olchov()
 
     return {
-        "oxirgi":     oxirgi,
-        "grafik":     grafik,
-        "jadval":     jadval,
-        "jami":       database.statistika(soat)["olchov_soni"],
+        "oxirgi":      oxirgi,
+        "grafik":      grafik,
+        "jadval":      jadval,
+        "jami":        database.statistika(soat)["olchov_soni"],
         "server_vaqt": datetime.now(TOSHKENT_TZ).isoformat(),
     }
 
 
 @app.get("/api/aqi", summary="Hozirgi AQI qiymati va holati")
 async def api_aqi():
-    """Eng so'nggi o'lchovdan hisoblangan AQI, daraja, sensor holati va sog'liq tavsiyasi."""
     oxirgi          = database.oxirgi_olchov()
     online          = database.qurilma_onlinemi()
     oxirgi_vaqt_str = oxirgi.get("vaqt") if oxirgi else None
@@ -212,12 +189,11 @@ async def api_aqi():
 
 @app.get("/api/predict", summary="Keyingi 1 soatlik AQI bashorati")
 async def api_predict():
-    """So'nggi 3 soatlik ma'lumot asosida AQI bashorati (ML placeholder)."""
     tarix  = database.vaqt_oraligi_malumotlar(soat=3)
     natija = bashorat_modeli.predict_next_hour(tarix)
 
     if natija.get("aqi_bashorat") is not None:
-        kat            = aqi_calculator.get_aqi_category(natija["aqi_bashorat"])
+        kat              = aqi_calculator.get_aqi_category(natija["aqi_bashorat"])
         natija["daraja"] = kat["daraja"]
         natija["rang"]   = kat["rang"]
 
@@ -226,13 +202,11 @@ async def api_predict():
 
 @app.get("/api/stats", summary="Statistika (o'rtacha, max, min)")
 async def api_stats(soat: int = Query(24, ge=1, le=720)):
-    """Berilgan vaqt oralig'i uchun statistik ma'lumotlar."""
     return database.statistika(soat)
 
 
 @app.get("/api/export/csv", summary="Barcha ma'lumotlarni CSV yuklab olish")
 async def api_export_csv():
-    """ML model o'qitish uchun to'liq dataset CSV sifatida yuklab olinadi."""
     barcha = database.jadval_malumotlar(limit=100_000)
 
     output = io.StringIO()
@@ -245,7 +219,7 @@ async def api_export_csv():
     output.seek(0)
 
     fayl_nomi = f"havo_data_{datetime.now(TOSHKENT_TZ).strftime('%Y%m%d_%H%M%S')}.csv"
-    log.info("📤 CSV eksport: %s (%d yozuv)", fayl_nomi, len(barcha))
+    log.info("CSV eksport: %s (%d ta)", fayl_nomi, len(barcha))
 
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -253,10 +227,6 @@ async def api_export_csv():
         headers={"Content-Disposition": f"attachment; filename={fayl_nomi}"},
     )
 
-
-# ═══════════════════════════════════════════════════
-# HTML SAHIFALAR (Jinja2 ishlatilmaydi — Python 3.14 muammosi)
-# ═══════════════════════════════════════════════════
 
 @app.get("/", summary="Asosiy dashboard sahifasi")
 async def sahifa_asosiy():
@@ -273,7 +243,6 @@ async def sahifa_haqida():
     return FileResponse("templates/about.html")
 
 
-# ─── To'g'ridan-to'g'ri ishga tushirish ───
 if __name__ == "__main__":
     print("=" * 55)
     print("  Havo Sifati Monitoringi — v2.0")

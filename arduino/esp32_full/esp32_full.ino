@@ -69,8 +69,8 @@ const bool ENABLE_MQ7    = true;    // GPIO 19 — ULANGAN
 const bool ENABLE_DHT22  = true;    // GPIO 4  — ULANGAN
 const bool ENABLE_OLED   = true;    // I2C (21/22) — ULANGAN
 
-const bool ENABLE_BMP280 = true;    // I2C 0x76 — ULANGAN (yangi sensor)
-// const bool ENABLE_SDS011 = false;   // UART (16/17) — SDS011 (kelajakda)
+const bool ENABLE_BMP280  = true;   // I2C 0x76
+const bool ENABLE_PMS5003 = true;   // UART2 (RX=16, TX=17) — PM2.5/PM10
 
 // ═══════════════════════════════════════════════════════════════
 // GPIO PINLARI
@@ -83,6 +83,9 @@ const int MQ135_AO_PIN = 35;  // MQ-135 analog chiqishi → ADC1_CH7
 const int MQ2_AO_PIN   = 32;  // MQ-2   analog chiqishi → ADC1_CH4
 const int MQ7_AO_PIN   = 34;  // MQ-7   analog chiqishi → ADC1_CH6
 const int DHT22_PIN    = 4;   // DHT22  data pini
+// PMS5003 UART2 pinlari
+const int PMS5003_RX   = 16;  // PMS5003 TX → ESP32 GPIO16 (RX2)
+const int PMS5003_TX   = 17;  // PMS5003 RX → ESP32 GPIO17 (TX2)
 #define   DHT_TYPE  DHT22    // DHT sensor turi
 
 // OLED ekran sozlamalari
@@ -101,8 +104,8 @@ const int DHT22_PIN    = 4;   // DHT22  data pini
 DHT           dht(DHT22_PIN, DHT_TYPE);
 Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &Wire, OLED_RESET);
 
-Adafruit_BMP280 bmp;            // BMP280 bosim sensori obyekti (I2C)
-// SoftwareSerial  sdsSerial(SDS011_RX_PIN, SDS011_TX_PIN);  // SDS011 (kelajakda)
+Adafruit_BMP280  bmp;           // BMP280 I2C
+HardwareSerial   pmsSerial(2);  // PMS5003 — UART2
 
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL O'ZGARUVCHILAR
@@ -285,6 +288,40 @@ bool wifi_urinib_kor() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// PMS5003 — 32 baytlik paket o'qish
+// Qaytaradi: true = ma'lumot o'qildi, false = ma'lumot yo'q
+// ═══════════════════════════════════════════════════════════════
+bool pms5003_oqi(float& pm25, float& pm10) {
+  if (pmsSerial.available() < 32) return false;
+
+  uint8_t buf[32];
+
+  // 0x42 0x4D frame header ni qidirish
+  while (pmsSerial.available() >= 32) {
+    if (pmsSerial.read() != 0x42) continue;
+    if (!pmsSerial.available() || pmsSerial.peek() != 0x4D) continue;
+
+    buf[0] = 0x42;
+    if (pmsSerial.readBytes(&buf[1], 31) != 31) return false;
+
+    // checksum tekshirish
+    uint16_t cs = 0;
+    for (int i = 0; i < 30; i++) cs += buf[i];
+    uint16_t got = ((uint16_t)buf[30] << 8) | buf[31];
+    if (cs != got) {
+      // checksum mos emas — keyingi paketni kutish
+      return false;
+    }
+
+    // PM2.5 va PM10 atmospheric (baytlar 12-13, 14-15)
+    pm25 = (float)(((uint16_t)buf[12] << 8) | buf[13]);
+    pm10 = (float)(((uint16_t)buf[14] << 8) | buf[15]);
+    return true;
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SENSORLARDAN O'QISH
 // ═══════════════════════════════════════════════════════════════
 SensorData sensorlar_oqi() {
@@ -349,6 +386,26 @@ SensorData sensorlar_oqi() {
       d.bosim = bosim_pa / 100.0F;
     } else {
       Serial.println("⚠️  BMP280 bosim o'qilmadi — null yuboriladi");
+    }
+  }
+
+  // ─── PMS5003 (PM2.5, PM10) ─────────────────────────────────
+  if (ENABLE_PMS5003) {
+    // Sensor 30 sekund isinishi kerak
+    if (millis() < 30000) {
+      Serial.print("   PMS5003 isinmoqda: ");
+      Serial.print(millis() / 1000);
+      Serial.println("s / 30s");
+    } else {
+      float pm25_val = NAN, pm10_val = NAN;
+      if (pms5003_oqi(pm25_val, pm10_val)) {
+        d.pm25 = pm25_val;
+        d.pm10 = pm10_val;
+        Serial.print("   PM2.5: "); Serial.print(pm25_val, 1); Serial.println(" ug/m3");
+        Serial.print("   PM10:  "); Serial.print(pm10_val, 1); Serial.println(" ug/m3");
+      } else {
+        Serial.println("   PMS5003: paket kelmadi");
+      }
     }
   }
 
@@ -705,6 +762,51 @@ void oled_sahifa3(const SensorData& d) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// OLED SAHIFA 4 — PM2.5 / PM10 (PMS5003)
+// ═══════════════════════════════════════════════════════════════
+void oled_sahifa4(const SensorData& d) {
+  oled.clearDisplay();
+  oled.setTextColor(SSD1306_WHITE);
+  oled.setTextSize(1);
+
+  oled.setCursor(25, 0);
+  oled.println("CHANG (PMS5003)");
+  oled.drawLine(0, 9, 127, 9, SSD1306_WHITE);
+
+  oled.setCursor(0, 13);
+  oled.print("PM2.5: ");
+  if (!isnan(d.pm25)) { oled.print(d.pm25, 1); oled.println(" ug/m3"); }
+  else                 { oled.println("-- (ulanmagan)"); }
+
+  oled.setCursor(0, 24);
+  oled.print("PM10:  ");
+  if (!isnan(d.pm10)) { oled.print(d.pm10, 1); oled.println(" ug/m3"); }
+  else                 { oled.println("-- (ulanmagan)"); }
+
+  oled.setCursor(0, 35);
+  if (!isnan(d.pm25)) {
+    oled.print("Holat: ");
+    if      (d.pm25 <= 12.0)  oled.print("Yaxshi");
+    else if (d.pm25 <= 35.4)  oled.print("Qoniqarli");
+    else if (d.pm25 <= 55.4)  oled.print("Sezgir");
+    else                      oled.print("! Iflos !");
+  }
+
+  oled.drawLine(0, 45, 127, 45, SSD1306_WHITE);
+
+  oled.setCursor(0, 49);
+  if (!isnan(d.pm25) && d.pm25 > 35.4)
+    oled.print("!! Chang ko'p !!");
+  else
+    oled.print("Chang normal");
+
+  oled.setCursor(98, 57);
+  oled.print("4/4");
+
+  oled.display();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // OLED YANGILASH — har 5 sekundda sahifa almashinadi
 // ═══════════════════════════════════════════════════════════════
 void oled_yangilash(const SensorData& d) {
@@ -712,19 +814,18 @@ void oled_yangilash(const SensorData& d) {
 
   unsigned long hozir = millis();
 
-  // Sahifani almashtirish
   if (hozir - oxirgi_sahifa_alm >= SAHIFA_INTERVAL) {
     oxirgi_sahifa_alm = hozir;
-    joriy_sahifa = (joriy_sahifa + 1) % 3;
+    joriy_sahifa = (joriy_sahifa + 1) % 4;  // 4 sahifa
   }
 
-  // Ekranni chizish (har 1 sekundda yangilanadi)
   if (hozir - oxirgi_oled_draw >= 1000) {
     oxirgi_oled_draw = hozir;
     switch (joriy_sahifa) {
       case 0: oled_sahifa1(d); break;
       case 1: oled_sahifa2(d); break;
       case 2: oled_sahifa3(d); break;
+      case 3: oled_sahifa4(d); break;
     }
   }
 }
@@ -786,6 +887,12 @@ void setup() {
   if (ENABLE_DHT22) {
     dht.begin();
     Serial.println("   ✅ DHT22  — GPIO 4  (Harorat/Namlik)");
+  }
+
+  // PMS5003 UART2 ishga tushirish (9600 baud, RX=16, TX=17)
+  if (ENABLE_PMS5003) {
+    pmsSerial.begin(9600, SERIAL_8N1, PMS5003_RX, PMS5003_TX);
+    Serial.println("   PMS5003 -- UART2 RX=16, TX=17 (30s isinish kerak)");
   }
 
   // BMP280 bosim sensori ishga tushirish

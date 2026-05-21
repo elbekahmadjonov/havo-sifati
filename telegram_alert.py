@@ -1,8 +1,3 @@
-"""
-Telegram Ogohlantirish Moduli
-AQI belgilangan chegaradan oshsa Telegram orqali xabar yuboradi.
-.env faylida TELEGRAM_BOT_TOKEN va TELEGRAM_CHAT_ID sozlang.
-"""
 import os
 import logging
 import requests
@@ -10,22 +5,20 @@ from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 
-TOSHKENT_TZ     = timezone(timedelta(hours=5))
-BOT_TOKEN       = os.getenv("TELEGRAM_BOT_TOKEN", "")
-CHAT_ID         = os.getenv("TELEGRAM_CHAT_ID", "")
-AQI_CHEGARA     = int(os.getenv("AQI_CHEGARA", "150"))
-MIN_INTERVAL    = 30  # bir xil ogohlantirishni takrorlamaslik (daqiqa)
+TOSHKENT_TZ  = timezone(timedelta(hours=5))
+BOT_TOKEN    = os.getenv("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID      = os.getenv("TELEGRAM_CHAT_ID", "")
+AQI_CHEGARA  = int(os.getenv("AQI_CHEGARA", "150"))
+MIN_INTERVAL = 30
 
 _oxirgi_yuborish: datetime | None = None
 
 
 def telegram_faolmi() -> bool:
-    """Telegram sozlamalari to'liq kiritilganmi?"""
     return bool(BOT_TOKEN and CHAT_ID)
 
 
 def xabar_yuborish(matn: str) -> bool:
-    """Telegram botiga xabar yuborish."""
     if not telegram_faolmi():
         return False
     try:
@@ -45,10 +38,6 @@ def xabar_yuborish(matn: str) -> bool:
 
 
 def aqi_tekshir_va_xabarlash(aqi: int, daraja: str, sensor_holat: dict) -> bool:
-    """
-    AQI ni tekshirib, chegaradan oshsa Telegram xabari yuborish.
-    MIN_INTERVAL daqiqada bir martadan ko'p xabar yubormaydi.
-    """
     global _oxirgi_yuborish
 
     if aqi < AQI_CHEGARA:
@@ -60,7 +49,6 @@ def aqi_tekshir_va_xabarlash(aqi: int, daraja: str, sensor_holat: dict) -> bool:
         if delta_min < MIN_INTERVAL:
             return False
 
-    # Sensor holati matnini shakllantirish
     qatorlar = []
     nom_map = {
         "mq135": "MQ-135 (CO₂/NH₃)", "mq2": "MQ-2 (Metan/LPG)",
@@ -70,7 +58,7 @@ def aqi_tekshir_va_xabarlash(aqi: int, daraja: str, sensor_holat: dict) -> bool:
     for kalit, qiymat in sensor_holat.items():
         if qiymat is None:
             continue
-        nom  = nom_map.get(kalit, kalit.upper())
+        nom   = nom_map.get(kalit, kalit.upper())
         holat = ("✅ Toza" if qiymat == 1 else "🚨 Gaz!") if kalit in ("mq135", "mq2", "mq7") else str(qiymat)
         qatorlar.append(f"  • {nom}: {holat}")
 

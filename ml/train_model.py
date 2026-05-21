@@ -1,26 +1,10 @@
-"""
-LSTM Model O'rgatish — Havo Sifati AQI Bashorati (PyTorch)
-===========================================================
-Arxitektura:
-    Input (24 soat × 6 xususiyat)
-    → LSTM(64, return_sequences=True)
-    → Dropout(0.2)
-    → LSTM(32)
-    → Dropout(0.2)
-    → Linear(16, ReLU)
-    → Linear(1)  ← bashorat qilingan AQI
-
-Ishlatish:
-    python ml/train_model.py
-"""
-
 import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
 import matplotlib
-matplotlib.use("Agg")  # GUI yo'q serverlarda ishlashi uchun
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import joblib
@@ -33,7 +17,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 print(f"✅ PyTorch {torch.__version__} yuklandi")
 
-# ── Yo'llar ──────────────────────────────────────────────────
 ML_DIR      = Path(__file__).parent
 CSV_YOLI    = ML_DIR / "data"    / "havo_data.csv"
 MODEL_YOLI  = ML_DIR / "models"  / "lstm_model.pth"
@@ -43,28 +26,18 @@ GRAFIK_YOLI = ML_DIR / "results" / "training_results.png"
 (ML_DIR / "models").mkdir(parents=True, exist_ok=True)
 (ML_DIR / "results").mkdir(parents=True, exist_ok=True)
 
-# ── Sozlamalar ────────────────────────────────────────────────
-VAQT_QADAMI   = 24          # Oxirgi 24 soat → keyingi 1 soat
+VAQT_QADAMI   = 24
 FEATURES      = ["harorat", "namlik", "mq135", "mq2", "mq7", "aqi"]
 TARGET        = "aqi"
 TRAIN_NISBATI = 0.80
 EPOCHS        = 100
 BATCH_SIZE    = 32
 LEARNING_RATE = 0.001
-PATIENCE      = 12           # EarlyStopping uchun
-DEVICE        = "cpu"        # GPU bo'lsa "cuda" qiling
+PATIENCE      = 12
+DEVICE        = "cpu"
 
-
-# ═══════════════════════════════════════════════════════════════
-# MODEL ARXITEKTURASI
-# ═══════════════════════════════════════════════════════════════
 
 class LSTMModel(nn.Module):
-    """
-    2 qatlamli LSTM neyron tarmog'i.
-    Kirish: (batch, vaqt_qadami, xususiyatlar)
-    Chiqish: (batch, 1) — AQI bashorati
-    """
 
     def __init__(self, input_size: int = 6, hidden1: int = 64,
                  hidden2: int = 32, dropout: float = 0.2):
@@ -81,17 +54,12 @@ class LSTMModel(nn.Module):
         out, _ = self.lstm1(x)
         out    = self.drop1(out)
         out, _ = self.lstm2(out)
-        out    = self.drop2(out[:, -1, :])   # faqat oxirgi vaqt qadami
+        out    = self.drop2(out[:, -1, :])
         out    = self.relu(self.fc1(out))
         return self.fc2(out)
 
 
-# ═══════════════════════════════════════════════════════════════
-# MA'LUMOT TAYYORLASH
-# ═══════════════════════════════════════════════════════════════
-
 def csv_yuklash() -> pd.DataFrame:
-    """CSV yuklab, soatlik o'rtachalarga resample qilish."""
     if not CSV_YOLI.exists():
         print(f"❌ CSV topilmadi: {CSV_YOLI}")
         print("   Avval: python ml/data_generator.py")
@@ -101,7 +69,6 @@ def csv_yuklash() -> pd.DataFrame:
     df = pd.read_csv(CSV_YOLI, parse_dates=["vaqt"])
     df = df.set_index("vaqt").sort_index()
 
-    # Soatlik o'rtachalar: 86,400 → 720 yozuv
     df_soatlik = df[FEATURES].resample("1h").mean().dropna()
 
     print(f"   Xom yozuvlar     : {len(df):,}")
@@ -112,7 +79,6 @@ def csv_yuklash() -> pd.DataFrame:
 def ketma_ketlik_yaratish(
     skalyangan: np.ndarray, vaqt_qadami: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """X[i] = skalyangan[i:i+vaqt_qadami]  →  y[i] = AQI[i+vaqt_qadami]"""
     X, y = [], []
     aqi_i = FEATURES.index(TARGET)
     for i in range(len(skalyangan) - vaqt_qadami):
@@ -121,26 +87,17 @@ def ketma_ketlik_yaratish(
     return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32)
 
 
-# ═══════════════════════════════════════════════════════════════
-# O'RGATISH
-# ═══════════════════════════════════════════════════════════════
-
 def orgatish(
     model: nn.Module,
     X_train: np.ndarray, y_train: np.ndarray,
     X_val:   np.ndarray, y_val:   np.ndarray,
 ) -> dict:
-    """
-    PyTorch o'rgatish sikli.
-    EarlyStopping va ReduceLROnPlateau o'rnatilgan.
-    """
-    criterion = nn.HuberLoss()    # Outlier larga chidamli
+    criterion = nn.HuberLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, factor=0.5, patience=6, min_lr=1e-6
     )
 
-    # Tensor ga aylantirish
     X_tr = torch.tensor(X_train)
     y_tr = torch.tensor(y_train).unsqueeze(1)
     X_vl = torch.tensor(X_val)
@@ -150,13 +107,12 @@ def orgatish(
 
     tarix = {"loss": [], "val_loss": [], "mae": [], "val_mae": []}
 
-    eng_yaxshi_loss = float("inf")
+    eng_yaxshi_loss  = float("inf")
     eng_yaxshi_holat = None
-    sabr_hisobi = 0
+    sabr_hisobi      = 0
 
     model.train()
     for epoch in range(1, EPOCHS + 1):
-        # ── O'rgatish ──
         model.train()
         epoch_loss, epoch_mae = 0.0, 0.0
         for xb, yb in loader:
@@ -172,7 +128,6 @@ def orgatish(
         epoch_loss /= len(X_train)
         epoch_mae  /= len(X_train)
 
-        # ── Validatsiya ──
         model.eval()
         with torch.no_grad():
             val_pred = model(X_vl)
@@ -186,7 +141,6 @@ def orgatish(
 
         scheduler.step(val_loss)
 
-        # ── EarlyStopping ──
         if val_loss < eng_yaxshi_loss - 1e-5:
             eng_yaxshi_loss  = val_loss
             eng_yaxshi_holat = {k: v.clone() for k, v in model.state_dict().items()}
@@ -204,16 +158,11 @@ def orgatish(
             print(f"  EarlyStopping: {epoch} epochda to'xtatildi (patience={PATIENCE})")
             break
 
-    # Eng yaxshi holat ni tiklash
     if eng_yaxshi_holat:
         model.load_state_dict(eng_yaxshi_holat)
 
     return tarix
 
-
-# ═══════════════════════════════════════════════════════════════
-# BAHOLASH
-# ═══════════════════════════════════════════════════════════════
 
 def metrikalar_hisoblash(y_haq: np.ndarray, y_bas: np.ndarray) -> dict:
     return {
@@ -224,16 +173,11 @@ def metrikalar_hisoblash(y_haq: np.ndarray, y_bas: np.ndarray) -> dict:
 
 
 def teskari_masshtablash(y_sk: np.ndarray, scaler: MinMaxScaler) -> np.ndarray:
-    """Faqat AQI ustunini original o'lchamga qaytarish."""
-    aqi_i        = FEATURES.index(TARGET)
-    temp         = np.zeros((len(y_sk), len(FEATURES)), dtype=np.float32)
+    aqi_i          = FEATURES.index(TARGET)
+    temp           = np.zeros((len(y_sk), len(FEATURES)), dtype=np.float32)
     temp[:, aqi_i] = y_sk
     return scaler.inverse_transform(temp)[:, aqi_i]
 
-
-# ═══════════════════════════════════════════════════════════════
-# GRAFIKLAR
-# ═══════════════════════════════════════════════════════════════
 
 def grafiklar_saqlash(tarix: dict, y_test: np.ndarray,
                       y_pred: np.ndarray, metrikalar: dict) -> None:
@@ -243,7 +187,6 @@ def grafiklar_saqlash(tarix: dict, y_test: np.ndarray,
         fontsize=14, fontweight="bold", y=0.98,
     )
 
-    # 1. Loss grafigi
     ax = axs[0, 0]
     ax.plot(tarix["loss"],     label="O'rgatish",   color="#3b82f6", linewidth=2)
     ax.plot(tarix["val_loss"], label="Validatsiya", color="#ef4444", linewidth=2)
@@ -252,7 +195,6 @@ def grafiklar_saqlash(tarix: dict, y_test: np.ndarray,
     ax.set_ylabel("Loss")
     ax.legend(); ax.grid(True, alpha=0.3)
 
-    # 2. MAE grafigi
     ax = axs[0, 1]
     ax.plot(tarix["mae"],     label="O'rgatish MAE",   color="#10b981", linewidth=2)
     ax.plot(tarix["val_mae"], label="Validatsiya MAE", color="#f59e0b", linewidth=2)
@@ -260,7 +202,6 @@ def grafiklar_saqlash(tarix: dict, y_test: np.ndarray,
     ax.set_xlabel("Epoch"); ax.set_ylabel("MAE (AQI)")
     ax.legend(); ax.grid(True, alpha=0.3)
 
-    # 3. Bashorat vs Haqiqiy
     ax = axs[1, 0]
     n = min(168, len(y_test))
     ax.plot(y_test[-n:], label="Haqiqiy AQI",  color="#3b82f6", alpha=0.85, linewidth=1.5)
@@ -270,7 +211,6 @@ def grafiklar_saqlash(tarix: dict, y_test: np.ndarray,
     ax.set_xlabel("Vaqt (soat)"); ax.set_ylabel("AQI")
     ax.legend(); ax.grid(True, alpha=0.3)
 
-    # 4. Korrelyatsiya scatter
     ax = axs[1, 1]
     ax.scatter(y_test, y_pred, alpha=0.35, s=8, color="#8b5cf6")
     mn = min(y_test.min(), y_pred.min())
@@ -292,33 +232,25 @@ def grafiklar_saqlash(tarix: dict, y_test: np.ndarray,
     print(f"✅ Grafik saqlandi: {GRAFIK_YOLI}")
 
 
-# ═══════════════════════════════════════════════════════════════
-# ASOSIY
-# ═══════════════════════════════════════════════════════════════
-
 def main() -> dict:
     print("=" * 58)
     print("  LSTM Model O'rgatish — Havo Sifati AQI Bashorati")
     print("=" * 58)
 
-    # 1. Ma'lumot yuklash
     df = csv_yuklash()
     print(f"   AQI: min={df['aqi'].min():.0f}, max={df['aqi'].max():.0f}, "
           f"o'rta={df['aqi'].mean():.1f}")
 
-    # 2. Masshtablash (faqat train qismiga fit!)
-    chegara = int(len(df) * TRAIN_NISBATI)
-    scaler  = MinMaxScaler(feature_range=(0, 1))
+    chegara    = int(len(df) * TRAIN_NISBATI)
+    scaler     = MinMaxScaler(feature_range=(0, 1))
     scaler.fit(df.iloc[:chegara][FEATURES].values)
     skalyangan = scaler.transform(df[FEATURES].values).astype(np.float32)
 
-    # 3. Ketma-ketliklar
     X, y = ketma_ketlik_yaratish(skalyangan, VAQT_QADAMI)
     print(f"\n📐 Dataset shakli:")
     print(f"   X: {X.shape}  (namunalar × vaqt_qadami × xususiyatlar)")
     print(f"   y: {y.shape}")
 
-    # 4. Train/Val/Test bo'lish
     n       = len(X)
     tr_end  = int(n * TRAIN_NISBATI)
     val_end = tr_end + int(n * 0.10)
@@ -330,16 +262,13 @@ def main() -> dict:
     print(f"\n📊 Train/Val/Test:")
     print(f"   Train: {len(X_train):,} | Val: {len(X_val):,} | Test: {len(X_test):,}")
 
-    # 5. Model
-    model = LSTMModel(input_size=len(FEATURES)).to(DEVICE)
+    model        = LSTMModel(input_size=len(FEATURES)).to(DEVICE)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"\n🧠 Model parametrlari: {total_params:,}")
 
-    # 6. O'rgatish
     print(f"\n🚀 O'rgatish boshlandi (max {EPOCHS} epoch, batch={BATCH_SIZE})...")
     tarix = orgatish(model, X_train, y_train, X_val, y_val)
 
-    # 7. Test baholash
     model.eval()
     with torch.no_grad():
         y_pred_sc = model(torch.tensor(X_test)).squeeze().numpy()
@@ -357,7 +286,6 @@ def main() -> dict:
     print(f"  R²   (Determinatsiya koeff.) : {metrikalar['R2']:8.4f}")
     print("=" * 50)
 
-    # 8. Saqlash
     torch.save({
         "model_state_dict": model.state_dict(),
         "input_size":  len(FEATURES),
@@ -373,7 +301,6 @@ def main() -> dict:
     joblib.dump(scaler, SCALER_YOLI)
     print(f"✅ Scaler saqlandi   : {SCALER_YOLI}")
 
-    # 9. Grafiklar
     grafiklar_saqlash(tarix, y_test_orig, y_pred_orig, metrikalar)
 
     print(f"\n✨ Barcha natijalar tayyor!")

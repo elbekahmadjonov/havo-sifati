@@ -1,11 +1,3 @@
-/* ═══════════════════════════════════════════════════
-   Havo Sifati Monitoringi — Umumiy JavaScript utilitalar
-   ═══════════════════════════════════════════════════ */
-
-/**
- * ISO vaqt satrini to'liq ko'rinishda formatlash (Toshkent vaqti).
- * Masalan: "07.05.2025 14:30:25"
- */
 function vaqtFormatla(isoStr) {
   if (!isoStr) return '—';
   try {
@@ -17,10 +9,6 @@ function vaqtFormatla(isoStr) {
   } catch { return isoStr; }
 }
 
-/**
- * ISO vaqt satridan faqat soat:daqiqa olish.
- * Masalan: "14:30"
- */
 function faqatVaqt(isoStr) {
   if (!isoStr) return '—';
   try {
@@ -31,9 +19,6 @@ function faqatVaqt(isoStr) {
   } catch { return isoStr.slice(11, 16); }
 }
 
-/**
- * AQI qiymatiga mos rang qaytarish.
- */
 function aqiRangi(aqi) {
   if (aqi == null) return '#64748b';
   if (aqi <= 50)  return '#10b981';
@@ -44,10 +29,6 @@ function aqiRangi(aqi) {
   return '#78350f';
 }
 
-/**
- * Sensor chip HTML yaratish (binary sensor uchun).
- * qiymat: 1 = toza, 0 = gaz, null = ulanmagan
- */
 function sensorChip(qiymat) {
   if (qiymat === null || qiymat === undefined)
     return '<span class="chip kulrang">━ Ulanmagan</span>';
@@ -56,18 +37,12 @@ function sensorChip(qiymat) {
   return '<span class="chip qizil puls">⚠ Gaz!</span>';
 }
 
-/**
- * Analog sensor qiymatini formatlash (harorat, pm va h.k.).
- */
 function analogChip(qiymat, birlik) {
   if (qiymat === null || qiymat === undefined)
     return '<span class="chip kulrang">━ Ulanmagan</span>';
   return `<span class="chip yashil">${parseFloat(qiymat).toFixed(1)} ${birlik}</span>`;
 }
 
-/**
- * Aktiv navigatsiya havolasini belgilash (joriy URL asosida).
- */
 function navHighlight() {
   const path = window.location.pathname;
   document.querySelectorAll('.nav-link').forEach(link => {
@@ -75,5 +50,4 @@ function navHighlight() {
   });
 }
 
-// Sahifa yuklanganda navni to'g'irlash
 document.addEventListener('DOMContentLoaded', navHighlight);

@@ -1,7 +1,3 @@
-"""
-Havo Sifati Monitoringi — Ma'lumotlar bazasi moduli
-SQLite bilan barcha CRUD operatsiyalari shu yerda.
-"""
 import sqlite3
 import logging
 from datetime import datetime, timedelta, timezone
@@ -25,7 +21,6 @@ def get_db():
 
 
 def db_yaratish():
-    """Jadvallar va indekslarni yaratish (agar mavjud bo'lmasa)."""
     with get_db() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS measurements (
@@ -59,7 +54,6 @@ def db_yaratish():
 
 
 def malumot_saqlash(data: dict) -> int:
-    """Yangi o'lchov yozuvini bazaga saqlash. ID ni qaytaradi."""
     vaqt = datetime.now(TOSHKENT_TZ).isoformat()
     with get_db() as conn:
         cur = conn.execute("""
@@ -77,7 +71,6 @@ def malumot_saqlash(data: dict) -> int:
 
 
 def oxirgi_olchov() -> dict | None:
-    """Eng so'nggi o'lchov yozuvini olish."""
     with get_db() as conn:
         row = conn.execute(
             "SELECT * FROM measurements ORDER BY id DESC LIMIT 1"
@@ -86,7 +79,6 @@ def oxirgi_olchov() -> dict | None:
 
 
 def qurilma_onlinemi(device_id: str = "esp32_001", daqiqa: float = 0.5) -> bool:
-    """Oxirgi o'lchov 30 sekund ichida kelgan bo'lsa True qaytaradi."""
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(minutes=daqiqa)).isoformat()
     with get_db() as conn:
         row = conn.execute(
@@ -97,7 +89,6 @@ def qurilma_onlinemi(device_id: str = "esp32_001", daqiqa: float = 0.5) -> bool:
 
 
 def vaqt_oraligi_malumotlar(soat: int = 1) -> list[dict]:
-    """Berilgan soat oralig'idagi yozuvlar (grafik uchun, vaqt bo'yicha o'sish tartibida)."""
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(hours=soat)).isoformat()
     with get_db() as conn:
         rows = conn.execute(
@@ -108,7 +99,6 @@ def vaqt_oraligi_malumotlar(soat: int = 1) -> list[dict]:
 
 
 def jadval_malumotlar(limit: int = 50, offset: int = 0) -> list[dict]:
-    """Jadval uchun so'nggi yozuvlar (sahifalash bilan)."""
     with get_db() as conn:
         rows = conn.execute(
             "SELECT * FROM measurements ORDER BY id DESC LIMIT ? OFFSET ?",
@@ -118,7 +108,6 @@ def jadval_malumotlar(limit: int = 50, offset: int = 0) -> list[dict]:
 
 
 def statistika(soat: int = 24) -> dict:
-    """Berilgan vaqt oralig'i uchun statistika (o'rtacha, max, min)."""
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(hours=soat)).isoformat()
     with get_db() as conn:
         row = conn.execute("""
@@ -153,7 +142,6 @@ def statistika(soat: int = 24) -> dict:
 
 
 def eski_malumot_tozalash():
-    """30 kundan eski yozuvlarni o'chirish."""
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(days=SAQLASH_KUN)).isoformat()
     with get_db() as conn:
         cur = conn.execute("DELETE FROM measurements WHERE vaqt < ?", (chegara,))
@@ -163,7 +151,6 @@ def eski_malumot_tozalash():
 
 
 def ogohlantirish_saqlash(sensor_nomi: str, qiymat: str, xabar: str):
-    """Ogohlantirish yozuvini bazaga saqlash."""
     vaqt = datetime.now(TOSHKENT_TZ).isoformat()
     with get_db() as conn:
         conn.execute(
