@@ -4,10 +4,10 @@
   ║   Diplom ishi, 2025-2026                                    ║
   ╠══════════════════════════════════════════════════════════════╣
   ║   Ulangan sensorlar:                                        ║
-  ║     MQ-135 → DO:GPIO23 AO:GPIO35 — CO₂/NH₃/Benzol          ║
-  ║     MQ-2   → DO:GPIO5  AO:GPIO32 — Metan/LPG/Tutun         ║
-  ║     MQ-7   → DO:GPIO19 AO:GPIO34 — Uglerod oksidi (CO)     ║
-  ║     DHT22  → GPIO 4   (data)        — Harorat va namlik     ║
+  ║     MQ-135 → DO:GPIO4  — CO₂/NH₃/Benzol                    ║
+  ║     MQ-2   → DO:GPIO5  — Metan/LPG/Tutun                   ║
+  ║     MQ-7   → DO:GPIO19 — Uglerod oksidi (CO)               ║
+  ║     DHT22  → GPIO23   (data)        — Harorat va namlik     ║
   ║     OLED   → SDA=21, SCL=22 (I2C, 0x3C)                   ║
   ║     BMP280 → SDA=21, SCL=22 (I2C, 0x76) — Bosim  ← YANGI ║
   ╠══════════════════════════════════════════════════════════════╣
@@ -63,10 +63,10 @@ const unsigned long QAYTA_ULANISH_MS   = 30000;   // 30 sekund
 
 // ─── Sensorlarni yoqish / o'chirish ──────────────────────────
 // Ulangan sensor = true  |  Ulanmagan sensor = false
-const bool ENABLE_MQ135  = true;    // GPIO 23 — ULANGAN
+const bool ENABLE_MQ135  = true;    // GPIO 4  — ULANGAN
 const bool ENABLE_MQ2    = true;    // GPIO 5  — ULANGAN
 const bool ENABLE_MQ7    = true;    // GPIO 19 — ULANGAN
-const bool ENABLE_DHT22  = true;    // GPIO 4  — ULANGAN
+const bool ENABLE_DHT22  = true;    // GPIO 23 — ULANGAN
 const bool ENABLE_OLED   = true;    // I2C (21/22) — ULANGAN
 
 const bool ENABLE_BMP280  = true;   // I2C 0x76
@@ -75,14 +75,10 @@ const bool ENABLE_PMS5003 = true;   // UART2 (RX=16, TX=17) — PM2.5/PM10
 // ═══════════════════════════════════════════════════════════════
 // GPIO PINLARI
 // ═══════════════════════════════════════════════════════════════
-const int MQ135_PIN    = 23;  // MQ-135 raqamli chiqishi (DO)
+const int MQ135_PIN    = 4;   // MQ-135 raqamli chiqishi (DO)
 const int MQ2_PIN      = 5;   // MQ-2   raqamli chiqishi (DO)
 const int MQ7_PIN      = 19;  // MQ-7   raqamli chiqishi (DO)
-// AO (analog out) pinlari — uzilish aniqlash uchun (ADC1, input-only)
-const int MQ135_AO_PIN = 35;  // MQ-135 analog chiqishi → ADC1_CH7
-const int MQ2_AO_PIN   = 32;  // MQ-2   analog chiqishi → ADC1_CH4
-const int MQ7_AO_PIN   = 34;  // MQ-7   analog chiqishi → ADC1_CH6
-const int DHT22_PIN    = 4;   // DHT22  data pini
+const int DHT22_PIN    = 23;  // DHT22  data pini
 // PMS5003 UART2 pinlari
 const int PMS5003_RX   = 16;  // PMS5003 TX → ESP32 GPIO16 (RX2)
 const int PMS5003_TX   = 17;  // PMS5003 RX → ESP32 GPIO17 (TX2)
@@ -327,39 +323,14 @@ bool pms5003_oqi(float& pm25, float& pm10) {
 SensorData sensorlar_oqi() {
   SensorData d;
 
-  // ─── MQ-135 (CO₂, NH₃, Benzol) ────────────────────────────
-  // AO > 500 → sensor ulangan; AO < 500 → uzilgan → null yuboriladi
-  if (ENABLE_MQ135) {
-    int ao = analogRead(MQ135_AO_PIN);   // GPIO 35 — ADC1_CH7
-    Serial.print("   MQ-135 AO: "); Serial.println(ao);
-    if (ao >= 500) {
-      d.mq135 = digitalRead(MQ135_PIN);
-    } else {
-      Serial.println("   ⚠️  MQ-135 ulanmagan (AO < 500) — null yuboriladi");
-    }
-  }
+  // ─── MQ-135 (CO₂, NH₃, Benzol) — GPIO 4 ───────────────────
+  if (ENABLE_MQ135) { d.mq135 = digitalRead(MQ135_PIN); }
 
-  // ─── MQ-2 (Metan, LPG, Tutun, Vodorod) ────────────────────
-  if (ENABLE_MQ2) {
-    int ao = analogRead(MQ2_AO_PIN);     // GPIO 32 — ADC1_CH4
-    Serial.print("   MQ-2   AO: "); Serial.println(ao);
-    if (ao >= 500) {
-      d.mq2 = digitalRead(MQ2_PIN);
-    } else {
-      Serial.println("   ⚠️  MQ-2 ulanmagan (AO < 500) — null yuboriladi");
-    }
-  }
+  // ─── MQ-2 (Metan, LPG, Tutun) — GPIO 5 ─────────────────────
+  if (ENABLE_MQ2)   { d.mq2   = digitalRead(MQ2_PIN);   }
 
-  // ─── MQ-7 (Uglerod oksidi — CO) ────────────────────────────
-  if (ENABLE_MQ7) {
-    int ao = analogRead(MQ7_AO_PIN);     // GPIO 34 — ADC1_CH6
-    Serial.print("   MQ-7   AO: "); Serial.println(ao);
-    if (ao >= 500) {
-      d.mq7 = digitalRead(MQ7_PIN);
-    } else {
-      Serial.println("   ⚠️  MQ-7 ulanmagan (AO < 500) — null yuboriladi");
-    }
-  }
+  // ─── MQ-7 (Uglerod oksidi CO) — GPIO 19 ────────────────────
+  if (ENABLE_MQ7)   { d.mq7   = digitalRead(MQ7_PIN);   }
 
   // ─── DHT22 (Harorat va Namlik) ──────────────────────────────
   if (ENABLE_DHT22) {
@@ -465,7 +436,10 @@ bool serverga_yubor(const SensorData& d) {
   serializeJson(doc, json);
 
   Serial.print("📤 Yuborilmoqda → ");
-  Serial.println(json);
+  Serial.println(SERVER_URL);
+  Serial.print("   Kalit: "); Serial.println(json);
+  Serial.print("   WiFi IP : "); Serial.println(WiFi.localIP());
+  Serial.print("   RSSI    : "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
 
   HTTPClient http;
   http.begin(SERVER_URL);
@@ -490,13 +464,13 @@ bool serverga_yubor(const SensorData& d) {
     return true;
 
   } else if (kod > 0) {
-    Serial.print("⚠️  HTTP xato kodi: ");
-    Serial.print(kod);
-    Serial.print(" | Javob: ");
-    Serial.println(http.getString());
+    Serial.print("⚠️  HTTP xato kodi: "); Serial.println(kod);
+    Serial.print("   Server javobi : "); Serial.println(http.getString());
+    Serial.println("   SERVER_URL ni tekshiring: " + String(SERVER_URL));
   } else {
-    Serial.print("❌ Ulanish xatosi: ");
+    Serial.print("❌ Ulanish xatosi ("); Serial.print(kod); Serial.print("): ");
     Serial.println(http.errorToString(kod));
+    Serial.println("   Server ishlamayapti yoki IP noto'g'ri: " + String(SERVER_URL));
   }
 
   http.end();
@@ -520,24 +494,15 @@ void serial_log(const SensorData& d) {
   // Gaz sensorlari
   if (ENABLE_MQ135) {
     Serial.print("🏭 MQ-135 (CO₂/NH₃/Benzol)  : ");
-    if (d.mq135 >= 0)
-      Serial.println(d.mq135 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
-    else
-      Serial.println("⚠️  Ulanmagan (AO < 500, null yuborildi)");
+    Serial.println(d.mq135 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
   }
   if (ENABLE_MQ2) {
     Serial.print("🔥 MQ-2   (Metan/LPG/Tutun) : ");
-    if (d.mq2 >= 0)
-      Serial.println(d.mq2 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
-    else
-      Serial.println("⚠️  Ulanmagan (AO < 500, null yuborildi)");
+    Serial.println(d.mq2 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
   }
   if (ENABLE_MQ7) {
     Serial.print("💨 MQ-7   (Uglerod oksidi)  : ");
-    if (d.mq7 >= 0)
-      Serial.println(d.mq7 == 1 ? "✅ TOZA  (CO aniqlanmadi)" : "🚨 XAVF! CO ANIQLANDI!");
-    else
-      Serial.println("⚠️  Ulanmagan (AO < 500, null yuborildi)");
+    Serial.println(d.mq7 == 1 ? "✅ TOZA  (CO aniqlanmadi)" : "🚨 XAVF! CO ANIQLANDI!");
   }
 
   Serial.println("──────────────────────────────────────────────");
@@ -842,9 +807,9 @@ void setup() {
   Serial.println("║   Havo Sifati Monitoringi — ESP32 v3.0        ║");
   Serial.println("║   Diplom loyihasi, 2025-2026                   ║");
   Serial.println("╠════════════════════════════════════════════════╣");
-  Serial.println("║   MQ-135 DO:GPIO23 AO:GPIO35 | MQ-2 DO:5 AO:32 ║");
-  Serial.println("║   MQ-7   DO:GPIO19 AO:GPIO34 | DHT22: GPIO4    ║");
-  Serial.println("║   OLED  SDA=21,SCL=22 (0x3C) | BMP280 (0x76)  ║");
+  Serial.println("║   MQ-135 DO:GPIO4  | MQ-2 DO:GPIO5  | MQ-7:GPIO19 ║");
+  Serial.println("║   DHT22: GPIO23  | OLED SDA=21,SCL=22 (0x3C)  ║");
+  Serial.println("║   BMP280 (0x76)  | PMS5003 UART2 RX=16,TX=17  ║");
   Serial.println("╚════════════════════════════════════════════════╝\n");
 
   // ─── OLED ni ishga tushirish ───────────────────────────────
@@ -874,7 +839,7 @@ void setup() {
   // INPUT_PULLUP: suzuvchi pin tasodifiy LOW o'qishini oldini oladi
   if (ENABLE_MQ135) {
     pinMode(MQ135_PIN, INPUT_PULLUP);
-    Serial.println("   ✅ MQ-135 — GPIO 23 (CO₂/NH₃/Benzol, INPUT_PULLUP)");
+    Serial.println("   ✅ MQ-135 — GPIO 4  (CO₂/NH₃/Benzol, INPUT_PULLUP)");
   }
   if (ENABLE_MQ2) {
     pinMode(MQ2_PIN, INPUT_PULLUP);
@@ -886,7 +851,7 @@ void setup() {
   }
   if (ENABLE_DHT22) {
     dht.begin();
-    Serial.println("   ✅ DHT22  — GPIO 4  (Harorat/Namlik)");
+    Serial.println("   ✅ DHT22  — GPIO 23 (Harorat/Namlik)");
   }
 
   // PMS5003 UART2 ishga tushirish (9600 baud, RX=16, TX=17)
