@@ -181,6 +181,8 @@ async def api_aqi():
         "harorat":         oxirgi.get("harorat"),
         "namlik":          oxirgi.get("namlik"),
         "bosim":           oxirgi.get("bosim"),
+        "pm25":            oxirgi.get("pm25"),
+        "pm10":            oxirgi.get("pm10"),
         "oxirgi_vaqt":     oxirgi.get("vaqt"),
         "qurilma_online":  True,
         "oxirgi_korinish": oxirgi_korinish,

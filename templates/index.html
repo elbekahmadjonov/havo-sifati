@@ -102,6 +102,8 @@
 
       <div class="aqi-daraja" id="aqi-daraja" style="color:var(--kulrang)">Yuklanmoqda...</div>
       <div class="aqi-indicator" id="aqi-indicator"></div>
+      <div id="aqi-pm25-chip" style="display:none;margin-top:0.45rem;font-size:0.71rem;
+           color:var(--kulrang);text-align:center;letter-spacing:0.02em"></div>
     </div>
 
     <!-- LSTM Bashorat kartasi -->
@@ -377,6 +379,7 @@ async function aqiYanila() {
       document.getElementById('tavsiya-matn').textContent       = "Qurilma bilan aloqa yo'q!";
       document.getElementById('tavsiya-matn').style.color       = '#ef4444';
       document.getElementById('sensorlar-holat').innerHTML      = '';
+      document.getElementById('aqi-pm25-chip').style.display    = 'none';
 
       SENSORLAR.forEach(sensorKartaOffline);
       console.log('Qurilma offline:', d.oxirgi_korinish);
@@ -402,6 +405,16 @@ async function aqiYanila() {
     aqiGaugeYangilaش(d.hozir, rang);
     document.getElementById('tavsiya-matn').textContent       = d.tavsiya || '';
     document.getElementById('tavsiya-matn').style.color       = 'var(--matn)';
+
+    // PM2.5 chip — AQI PM2.5 asosida hisoblanganini ko'rsatish
+    const pm25El = document.getElementById('aqi-pm25-chip');
+    if (d.pm25 != null && d.pm25 >= 0) {
+      pm25El.style.display = 'block';
+      pm25El.innerHTML = `🔴 PM2.5: <strong>${parseFloat(d.pm25).toFixed(1)} μg/m³</strong>`
+        + ` &nbsp;|&nbsp; 🟠 PM10: <strong>${d.pm10 != null ? parseFloat(d.pm10).toFixed(1) : '—'} μg/m³</strong>`;
+    } else {
+      pm25El.style.display = 'none';
+    }
 
     const sensorlarEl = document.getElementById('sensorlar-holat');
     if (Array.isArray(d.sensorlar) && d.sensorlar.length) {

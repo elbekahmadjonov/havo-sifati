@@ -18,8 +18,7 @@
   ║     - Adafruit GFX Library                                  ║
   ║     - Adafruit BMP280 Library                               ║
   ╠══════════════════════════════════════════════════════════════╣
-  ║   Kelajakda qo'shilishi mumkin (hozir izohlangan):          ║
-  ║     - SDS011  → UART (RX=16, TX=17) — PM2.5, PM10          ║
+  ║   PMS5003 → UART2 (RX=16 ← TXD, TX=17 → RXD) — PM2.5/PM10 ║
   ╚══════════════════════════════════════════════════════════════╝
 */
 
@@ -47,7 +46,7 @@ const char* WIFI_SSID     = "esp32";       // <- o'zgartiring
 const char* WIFI_PASSWORD = "12123434";     // <- o'zgartiring
 
 // Server manzili (cmd → ipconfig → IPv4 Address ni ko'ring)
-const char* SERVER_URL    = "http://192.168.62.245:8000/api/sensor";
+const char* SERVER_URL    = "http://10.83.229.245:8000/api/sensor";
 
 // Qurilma identifikatori (bir nechta ESP32 bo'lsa farqlash uchun)
 const char* DEVICE_ID     = "esp32_001";
@@ -288,6 +287,27 @@ bool wifi_urinib_kor() {
 // Qaytaradi: true = ma'lumot o'qildi, false = ma'lumot yo'q
 // ═══════════════════════════════════════════════════════════════
 bool pms5003_oqi(float& pm25, float& pm10) {
+  /*
+   * PMS5003 pin tartibi (standart emas!):
+   *   1-VCC(5V), 2-GND, 3-SET, 4-RXD(←ESP TX/GPIO17), 5-TXD(→ESP RX/GPIO16),
+   *   6-RESET, 7-NC, 8-NC
+   *
+   * 32 baytlik frame tuzilishi (buf[0]=0x42 kiritilgan):
+   *   buf[0] = 0x42  (START1)
+   *   buf[1] = 0x4D  (START2)
+   *   buf[2-3]  = Frame length (= 0x001C = 28)
+   *   buf[4-5]  = PM1.0 CF1 (standart)
+   *   buf[6-7]  = PM2.5 CF1 (standart) ← ISHLATILADI
+   *   buf[8-9]  = PM10  CF1 (standart) ← ISHLATILADI
+   *   buf[10-11]= PM1.0 atmospheric
+   *   buf[12-13]= PM2.5 atmospheric
+   *   buf[14-15]= PM10  atmospheric
+   *   buf[30-31]= Checksum (bayt 0..29 yig'indisi)
+   *
+   * Test kodi (tasdiqlangan): 30-baytlik buffer (0x4D dan keyin o'qiladi):
+   *   buffer[4]<<8|buffer[5] = PM2.5 CF1  →  buf[6]<<8|buf[7] bilan bir xil
+   *   buffer[6]<<8|buffer[7] = PM10  CF1  →  buf[8]<<8|buf[9] bilan bir xil
+   */
   if (pmsSerial.available() < 32) return false;
 
   uint8_t buf[32];
@@ -300,18 +320,18 @@ bool pms5003_oqi(float& pm25, float& pm10) {
     buf[0] = 0x42;
     if (pmsSerial.readBytes(&buf[1], 31) != 31) return false;
 
-    // checksum tekshirish
+    // Checksum tekshirish: buf[0..29] yig'indisi = buf[30]<<8 | buf[31]
     uint16_t cs = 0;
     for (int i = 0; i < 30; i++) cs += buf[i];
     uint16_t got = ((uint16_t)buf[30] << 8) | buf[31];
     if (cs != got) {
-      // checksum mos emas — keyingi paketni kutish
+      Serial.println("   PMS5003: checksum xato — paket qayta kutiladi");
       return false;
     }
 
-    // PM2.5 va PM10 atmospheric (baytlar 12-13, 14-15)
-    pm25 = (float)(((uint16_t)buf[12] << 8) | buf[13]);
-    pm10 = (float)(((uint16_t)buf[14] << 8) | buf[15]);
+    // PM2.5 va PM10 CF1 (standart kalibrlash, test kodi bilan tasdiqlangan)
+    pm25 = (float)(((uint16_t)buf[6] << 8) | buf[7]);
+    pm10 = (float)(((uint16_t)buf[8] << 8) | buf[9]);
     return true;
   }
   return false;
