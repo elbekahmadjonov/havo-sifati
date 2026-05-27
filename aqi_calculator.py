@@ -91,6 +91,18 @@ _NAMLIK_CHEGARASI  = 80.0
 _HARORAT_BONUS     = 25
 _NAMLIK_BONUS      = 15
 
+# MQ analog breakpointlar (ESP32 ADC 12-bit: 0-4095)
+# MUHIM: Bu kalibrlanmagan TAXMINIY darajalash.
+# Real ppm hisoblash uchun R0 kalibrovkasi va sensor-spesifik egri chiziq kerak.
+# Past qiymat = toza havo, yuqori qiymat = ifloslik ko'rsatkichi.
+_MQ_ANALOG_BP = [
+    (   0,  799,   0,  50),   # Yaxshi      — toza havo (400-900 odatiy fon)
+    ( 800, 1599,  51, 100),   # O'rtacha    — seziladi, lekin xavfsiz
+    (1600, 2399, 101, 150),   # Sezgir      — ehtiyot bo'lish kerak
+    (2400, 3199, 151, 200),   # Zararli     — faoliyatni cheklash
+    (3200, 4095, 201, 300),   # Juda zararli— tashqarida bo'lmang
+]
+
 
 def _epa_interpolatsiya(c: float, breakpoints: list) -> Optional[int]:
     for c_min, c_max, i_min, i_max in breakpoints:
@@ -105,6 +117,24 @@ def _pm25_aqi(pm25: float) -> Optional[int]:
 
 def _pm10_aqi(pm10: float) -> Optional[int]:
     return _epa_interpolatsiya(pm10, _PM10_BP)
+
+
+def mq_analog_to_aqi(analog: int) -> int:
+    """
+    ESP32 ADC 12-bit analog qiymatidan (0-4095) AQI hisoblash.
+
+    DIQQAT: Bu taxminiy darajalash — sensorlar kalibrlanmagan.
+    Aniq ppm o'lchash uchun maxsus uskuna va R0 kalibrovkasi kerak.
+    Ushbu funksiya faqat nisbiy holat ko'rsatkichi sifatida ishlatiladi.
+
+    Args:
+        analog: ADC o'qish qiymati (0–4095)
+    Returns:
+        Taxminiy AQI (0–300)
+    """
+    analog = max(0, min(4095, int(analog)))
+    v = _epa_interpolatsiya(float(analog), _MQ_ANALOG_BP)
+    return v if v is not None else 300
 
 
 def _mq_aqi(
@@ -131,32 +161,53 @@ def _mq_aqi(
 
 
 def hisobla_aqi(
-    mq135:   Optional[int]   = None,
-    mq2:     Optional[int]   = None,
-    mq7:     Optional[int]   = None,
-    harorat: Optional[float] = None,
-    namlik:  Optional[float] = None,
-    bosim:   Optional[float] = None,
-    pm25:    Optional[float] = None,
-    pm10:    Optional[float] = None,
+    mq135:    Optional[int]   = None,
+    mq2:      Optional[int]   = None,
+    mq7:      Optional[int]   = None,
+    harorat:  Optional[float] = None,
+    namlik:   Optional[float] = None,
+    bosim:    Optional[float] = None,
+    pm25:     Optional[float] = None,
+    pm10:     Optional[float] = None,
+    mq135_aq: Optional[int]   = None,
+    mq2_aq:   Optional[int]   = None,
+    mq7_aq:   Optional[int]   = None,
 ) -> int:
-    aqi_qiymatlar = []
-
+    """
+    AQI hisoblash — uch darajali ustunlik:
+      1. PM2.5 / PM10 (PMS5003 — EPA rasmiy formula, eng ishonchli)
+      2. MQ analog AO (0-4095) — kalibrlanmagan nisbiy o'lchov
+      3. MQ raqamli DO (0/1)   — faqat analog mavjud bo'lmasa
+    """
+    # ── 1. PM sensorlar (EPA rasmiy, eng yuqori ustunlik) ────────
+    pm_aqilar = []
     if pm25 is not None and pm25 >= 0:
         v = _pm25_aqi(pm25)
         if v is not None:
-            aqi_qiymatlar.append(v)
-
+            pm_aqilar.append(v)
     if pm10 is not None and pm10 >= 0:
         v = _pm10_aqi(pm10)
         if v is not None:
-            aqi_qiymatlar.append(v)
+            pm_aqilar.append(v)
 
-    mq_val = _mq_aqi(mq135, mq2, mq7, harorat, namlik)
-    aqi_qiymatlar.append(mq_val)
+    # ── 2. MQ analog (kalibrlanmagan nisbiy) ────────────────────
+    mq_analog_aqilar = []
+    for aq in (mq135_aq, mq2_aq, mq7_aq):
+        if aq is not None and aq >= 0:
+            mq_analog_aqilar.append(mq_analog_to_aqi(aq))
 
-    aqi = max(aqi_qiymatlar) if aqi_qiymatlar else 30
+    # ── Ustunlik zanjiri ─────────────────────────────────────────
+    if pm_aqilar:
+        # PM bor — PM ustun; MQ analog ham qo'shimcha hisobga olinadi
+        aqi = max(pm_aqilar + mq_analog_aqilar)
+    elif mq_analog_aqilar:
+        # PM yo'q, MQ analog bor — eng yuqori analogni ol
+        aqi = max(mq_analog_aqilar)
+    else:
+        # Faqat raqamli DO — eski ball tizimi
+        aqi = _mq_aqi(mq135, mq2, mq7, harorat, namlik)
 
+    # ── Bosim tuzatmasi (kichik ta'sir) ─────────────────────────
     if bosim is not None:
         if bosim < 990.0:
             aqi += 10
@@ -288,6 +339,9 @@ def get_overall_aqi(m: dict) -> int:
         bosim=m.get("bosim"),
         pm25=m.get("pm25"),
         pm10=m.get("pm10"),
+        mq135_aq=m.get("mq135_aq"),
+        mq2_aq=m.get("mq2_aq"),
+        mq7_aq=m.get("mq7_aq"),
     )
 
 
@@ -341,7 +395,26 @@ def testlar():
     for nomi, aqi, kutilgan in testlar_pm:
         _test_chiqar(nomi, aqi, kutilgan)
 
-    print("\n3. Aralash (MQ + PM2.5) stsenariy:")
+    print("\n3. MQ analog (0-4095) stsenariylari:")
+    testlar_analog = [
+        ("MQ analog = 400  (toza fon)",    mq_analog_to_aqi(400),  "Yaxshi"),
+        ("MQ analog = 1000 (o'rtacha)",    mq_analog_to_aqi(1000), "O'rtacha"),
+        ("MQ analog = 2000 (sezgir)",      mq_analog_to_aqi(2000), "Sezgir guruh uchun zararli"),
+        ("MQ analog = 2800 (zararli)",     mq_analog_to_aqi(2800), "Zararli"),
+        ("MQ analog = 3500 (juda zarar)",  mq_analog_to_aqi(3500), "Juda zararli"),
+    ]
+    for nomi, aqi, kutilgan in testlar_analog:
+        info   = aqi_daraja(aqi)
+        status = "✅" if info["daraja"] == kutilgan else "❌"
+        print(f"  {status} {nomi:<35} AQI={aqi:3d}  {info['emoji']} {info['daraja']}")
+
+    print("\n4. Ustunlik zanjiri stsenariylari:")
+    print(f"  PM2.5=20 (ustun), MQ analog=3000  → AQI={hisobla_aqi(pm25=20.0, mq135_aq=3000)}"
+          "  (max qalinadi: PM→79, analog→194)")
+    print(f"  PM yo'q,  MQ analog=2000           → AQI={hisobla_aqi(mq135_aq=2000)}")
+    print(f"  Faqat DO (MQ-135 iflos)            → AQI={hisobla_aqi(mq135=0, mq2=1, mq7=1)}")
+
+    print("\n5. Aralash (MQ + PM2.5) stsenariy:")
     aqi_mix = hisobla_aqi(mq135=0, mq2=1, mq7=1, harorat=36.0, pm25=25.0)
     print(f"  MQ-135 iflos, harorat=36°C, PM2.5=25 → AQI={aqi_mix}")
 

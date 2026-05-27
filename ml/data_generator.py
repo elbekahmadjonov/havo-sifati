@@ -147,21 +147,40 @@ def yozuvlar_yaratish() -> pd.DataFrame:
         mq2   = 0 if aqi > 165 else 1   # Metan, LPG, Tutun
         mq7   = 0 if aqi > 145 else 1   # Uglerod oksidi (CO)
 
+        # ── MQ analog AO (0-4095, ADC 12-bit, kalibrlanmagan nisbiy) ──
+        # Toza holat: 400-900 (fon shovqin + minimal gaz)
+        # Iflos holat: 1500-3500 (gaz konsentratsiya oshadi)
+        # AQI bilan kuchsiz korrelyatsiya (noaniq sensor, real hayot)
+        def _mq_aq(do_val: int, aqi_val: int, shovqin: float = 200.0) -> int:
+            if do_val == 1:   # toza
+                base = 400 + (aqi_val / 100.0) * 300   # AQI 0→400, AQI 100→700
+            else:             # gaz aniqlandi
+                base = 1500 + (aqi_val / 200.0) * 1500  # AQI 0→1500, AQI 200→3000
+            val = base + np.random.normal(0, shovqin)
+            return int(np.clip(val, 0, 4095))
+
+        mq135_aq = _mq_aq(mq135, aqi, shovqin=180.0)
+        mq2_aq   = _mq_aq(mq2,   aqi, shovqin=200.0)
+        mq7_aq   = _mq_aq(mq7,   aqi, shovqin=160.0)
+
         # ── Atmosfera bosimi: kunlik + mavsumiy model, ±5 hPa og'ish ──
         bosim = bosim_hisoblash(soat, kun_raqami) + np.random.normal(0, 2.5)
         bosim = float(np.clip(bosim, 980.0, 1050.0))
 
         yozuvlar.append({
-            "vaqt":    vaqt.strftime("%Y-%m-%d %H:%M:%S"),
-            "harorat": round(float(harorat), 1),
-            "namlik":  round(float(np.clip(namlik, 15.0, 90.0)), 1),
-            "mq135":   mq135,
-            "mq2":     mq2,
-            "mq7":     mq7,
-            "pm25":    round(float(pm25), 2),
-            "pm10":    round(float(pm10), 2),
-            "bosim":   round(float(bosim), 1),
-            "aqi":     aqi,
+            "vaqt":     vaqt.strftime("%Y-%m-%d %H:%M:%S"),
+            "harorat":  round(float(harorat), 1),
+            "namlik":   round(float(np.clip(namlik, 15.0, 90.0)), 1),
+            "mq135":    mq135,
+            "mq2":      mq2,
+            "mq7":      mq7,
+            "mq135_aq": mq135_aq,
+            "mq2_aq":   mq2_aq,
+            "mq7_aq":   mq7_aq,
+            "pm25":     round(float(pm25), 2),
+            "pm10":     round(float(pm10), 2),
+            "bosim":    round(float(bosim), 1),
+            "aqi":      aqi,
         })
 
         vaqt += timedelta(seconds=INTERVAL_SEK)
@@ -199,6 +218,7 @@ def sqlite_saqlash(df: pd.DataFrame) -> None:
     df_ins = df.copy()
     df_ins["device_id"] = "esp32_sim"
     cols = ["device_id", "vaqt", "mq135", "mq2", "mq7",
+            "mq135_aq", "mq2_aq", "mq7_aq",
             "harorat", "namlik", "bosim", "pm25", "pm10", "aqi"]
     df_ins[cols].to_sql("measurements", conn, if_exists="append", index=False)
     conn.commit()
@@ -222,6 +242,8 @@ def statistika_chiqar(df: pd.DataFrame) -> None:
     print(f"   Namlik — o'rta: {df['namlik'].mean():.1f}%")
     print(f"   PM2.5  — o'rta: {df['pm25'].mean():.1f} μg/m³")
     print(f"   Bosim  — o'rta: {df['bosim'].mean():.1f} hPa, min: {df['bosim'].min():.1f}, max: {df['bosim'].max():.1f}")
+    print(f"   MQ135 AQ — o'rta: {df['mq135_aq'].mean():.0f}, min: {df['mq135_aq'].min()}, max: {df['mq135_aq'].max()}")
+    print(f"   MQ2   AQ — o'rta: {df['mq2_aq'].mean():.0f}, min: {df['mq2_aq'].min()}, max: {df['mq2_aq'].max()}")
 
     print("\n   AQI taqsimlanishi:")
     kategoriyalar = [

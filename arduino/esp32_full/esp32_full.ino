@@ -77,6 +77,10 @@ const bool ENABLE_PMS5003 = true;   // UART2 (RX=16, TX=17) — PM2.5/PM10
 const int MQ135_PIN    = 4;   // MQ-135 raqamli chiqishi (DO)
 const int MQ2_PIN      = 5;   // MQ-2   raqamli chiqishi (DO)
 const int MQ7_PIN      = 19;  // MQ-7   raqamli chiqishi (DO)
+// AO (analog out) pinlari — ADC1 input-only, pinMode kerak emas
+const int MQ135_AO_PIN = 35;  // MQ-135 analog → ADC1_CH7 (GPIO35, input-only)
+const int MQ2_AO_PIN   = 32;  // MQ-2   analog → ADC1_CH4 (GPIO32)
+const int MQ7_AO_PIN   = 34;  // MQ-7   analog → ADC1_CH6 (GPIO34, input-only)
 const int DHT22_PIN    = 23;  // DHT22  data pini
 // PMS5003 UART2 pinlari
 const int PMS5003_RX   = 16;  // PMS5003 TX → ESP32 GPIO16 (RX2)
@@ -119,14 +123,17 @@ char oxirgi_vaqt[9]  = "--:--"; // Oxirgi yuborish vaqti (MM:SS from start)
 
 // ─── Sensor ma'lumotlari strukturasi ─────────────────────────
 struct SensorData {
-  int   mq135   = -1;       // -1 = o'chirilgan yoki xato (null yuboriladi)
-  int   mq2     = -1;
-  int   mq7     = -1;
-  float harorat = NAN;      // NAN = o'chirilgan yoki xato (null yuboriladi)
-  float namlik  = NAN;
-  float bosim   = NAN;      // BMP280 uchun (kelajak)
-  float pm25    = NAN;      // SDS011 uchun (kelajak)
-  float pm10    = NAN;      // SDS011 uchun (kelajak)
+  int   mq135     = -1;     // DO: 1=toza, 0=gaz, -1=o'chirilgan (null yuboriladi)
+  int   mq2       = -1;
+  int   mq7       = -1;
+  int   mq135_aq  = -1;     // AO: 0-4095 (ADC 12-bit), -1=o'chirilgan
+  int   mq2_aq    = -1;
+  int   mq7_aq    = -1;
+  float harorat   = NAN;    // NAN = o'chirilgan yoki xato (null yuboriladi)
+  float namlik    = NAN;
+  float bosim     = NAN;    // BMP280 (hPa)
+  float pm25      = NAN;    // PMS5003 (μg/m³)
+  float pm10      = NAN;    // PMS5003 (μg/m³)
 };
 
 SensorData joriy_data;      // Oxirgi o'lchov natijasi (OLED uchun global)
@@ -343,14 +350,23 @@ bool pms5003_oqi(float& pm25, float& pm10) {
 SensorData sensorlar_oqi() {
   SensorData d;
 
-  // ─── MQ-135 (CO₂, NH₃, Benzol) — GPIO 4 ───────────────────
-  if (ENABLE_MQ135) { d.mq135 = digitalRead(MQ135_PIN); }
+  // ─── MQ-135 (CO₂, NH₃, Benzol) — DO:GPIO4, AO:GPIO35 ──────
+  if (ENABLE_MQ135) {
+    d.mq135    = digitalRead(MQ135_PIN);
+    d.mq135_aq = analogRead(MQ135_AO_PIN);   // 0-4095 (ADC1_CH7, GPIO35)
+  }
 
-  // ─── MQ-2 (Metan, LPG, Tutun) — GPIO 5 ─────────────────────
-  if (ENABLE_MQ2)   { d.mq2   = digitalRead(MQ2_PIN);   }
+  // ─── MQ-2 (Metan, LPG, Tutun) — DO:GPIO5, AO:GPIO32 ────────
+  if (ENABLE_MQ2) {
+    d.mq2    = digitalRead(MQ2_PIN);
+    d.mq2_aq = analogRead(MQ2_AO_PIN);       // 0-4095 (ADC1_CH4, GPIO32)
+  }
 
-  // ─── MQ-7 (Uglerod oksidi CO) — GPIO 19 ────────────────────
-  if (ENABLE_MQ7)   { d.mq7   = digitalRead(MQ7_PIN);   }
+  // ─── MQ-7 (Uglerod oksidi CO) — DO:GPIO19, AO:GPIO34 ───────
+  if (ENABLE_MQ7) {
+    d.mq7    = digitalRead(MQ7_PIN);
+    d.mq7_aq = analogRead(MQ7_AO_PIN);       // 0-4095 (ADC1_CH6, GPIO34)
+  }
 
   // ─── DHT22 (Harorat va Namlik) ──────────────────────────────
   if (ENABLE_DHT22) {
@@ -423,14 +439,20 @@ bool serverga_yubor(const SensorData& d) {
     return false;
   }
 
-  // JSON hujjat yaratish (384 bayt yetarli)
-  StaticJsonDocument<384> doc;
+  // JSON hujjat yaratish (512 bayt — analog maydonlar uchun kengaytirildi)
+  StaticJsonDocument<512> doc;
   doc["device_id"] = DEVICE_ID;
 
-  // Har bir sensor: -1 yoki NAN bo'lsa null yuboriladi
+  // Raqamli (DO): 0/1 yoki null
   if (ENABLE_MQ135 && d.mq135 >= 0) doc["mq135"] = d.mq135; else doc["mq135"] = nullptr;
   if (ENABLE_MQ2   && d.mq2   >= 0) doc["mq2"]   = d.mq2;   else doc["mq2"]   = nullptr;
   if (ENABLE_MQ7   && d.mq7   >= 0) doc["mq7"]   = d.mq7;   else doc["mq7"]   = nullptr;
+
+  // Analog (AO): 0-4095 yoki null
+  // IZOH: Bu kalibrlanmagan nisbiy qiymat. To'liq ppm uchun maxsus kalibrovka kerak.
+  if (ENABLE_MQ135 && d.mq135_aq >= 0) doc["mq135_aq"] = d.mq135_aq; else doc["mq135_aq"] = nullptr;
+  if (ENABLE_MQ2   && d.mq2_aq   >= 0) doc["mq2_aq"]   = d.mq2_aq;   else doc["mq2_aq"]   = nullptr;
+  if (ENABLE_MQ7   && d.mq7_aq   >= 0) doc["mq7_aq"]   = d.mq7_aq;   else doc["mq7_aq"]   = nullptr;
 
   if (ENABLE_DHT22 && !isnan(d.harorat))
     doc["harorat"] = (float)round(d.harorat * 10) / 10.0f;
@@ -511,18 +533,24 @@ void serial_log(const SensorData& d) {
   Serial.println("s");
   Serial.println("──────────────────────────────────────────────");
 
-  // Gaz sensorlari
+  // Gaz sensorlari (DO + AO)
   if (ENABLE_MQ135) {
-    Serial.print("🏭 MQ-135 (CO₂/NH₃/Benzol)  : ");
-    Serial.println(d.mq135 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
+    Serial.print("🏭 MQ-135 : ");
+    Serial.print(d.mq135 == 1 ? "TOZA " : "GAZ! ");
+    Serial.print(" | AO: "); Serial.print(d.mq135_aq);
+    Serial.print("/4095  ("); Serial.print(d.mq135_aq * 100 / 4095); Serial.println("%)");
   }
   if (ENABLE_MQ2) {
-    Serial.print("🔥 MQ-2   (Metan/LPG/Tutun) : ");
-    Serial.println(d.mq2 == 1 ? "✅ TOZA  (gaz aniqlanmadi)" : "🚨 XAVF! GAZ ANIQLANDI!");
+    Serial.print("🔥 MQ-2   : ");
+    Serial.print(d.mq2 == 1 ? "TOZA " : "GAZ! ");
+    Serial.print(" | AO: "); Serial.print(d.mq2_aq);
+    Serial.print("/4095  ("); Serial.print(d.mq2_aq * 100 / 4095); Serial.println("%)");
   }
   if (ENABLE_MQ7) {
-    Serial.print("💨 MQ-7   (Uglerod oksidi)  : ");
-    Serial.println(d.mq7 == 1 ? "✅ TOZA  (CO aniqlanmadi)" : "🚨 XAVF! CO ANIQLANDI!");
+    Serial.print("💨 MQ-7   : ");
+    Serial.print(d.mq7 == 1 ? "TOZA " : "GAZ! ");
+    Serial.print(" | AO: "); Serial.print(d.mq7_aq);
+    Serial.print("/4095  ("); Serial.print(d.mq7_aq * 100 / 4095); Serial.println("%)");
   }
 
   Serial.println("──────────────────────────────────────────────");

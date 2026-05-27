@@ -30,6 +30,9 @@ def db_yaratish():
                 mq135     INTEGER,
                 mq2       INTEGER,
                 mq7       INTEGER,
+                mq135_aq  INTEGER,
+                mq2_aq    INTEGER,
+                mq7_aq    INTEGER,
                 harorat   REAL,
                 namlik    REAL,
                 bosim     REAL,
@@ -40,6 +43,22 @@ def db_yaratish():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_vaqt    ON measurements(vaqt)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_device  ON measurements(device_id)")
+
+        # Eski bazalarga yangi ustunlarni qo'shish (idempotent)
+        mavjud = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(measurements)").fetchall()
+        }
+        yangi_ustunlar = {
+            "mq135_aq": "INTEGER",
+            "mq2_aq":   "INTEGER",
+            "mq7_aq":   "INTEGER",
+        }
+        for ustun, tur in yangi_ustunlar.items():
+            if ustun not in mavjud:
+                conn.execute(f"ALTER TABLE measurements ADD COLUMN {ustun} {tur}")
+                log.info("🔧 Yangi ustun qo'shildi: measurements.%s", ustun)
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS alerts (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,13 +77,17 @@ def malumot_saqlash(data: dict) -> int:
     with get_db() as conn:
         cur = conn.execute("""
             INSERT INTO measurements
-                (device_id, vaqt, mq135, mq2, mq7, harorat, namlik, bosim, pm25, pm10, aqi)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (device_id, vaqt,
+                 mq135, mq2, mq7,
+                 mq135_aq, mq2_aq, mq7_aq,
+                 harorat, namlik, bosim, pm25, pm10, aqi)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data.get("device_id", "esp32_001"), vaqt,
-            data.get("mq135"), data.get("mq2"),   data.get("mq7"),
-            data.get("harorat"), data.get("namlik"), data.get("bosim"),
-            data.get("pm25"),   data.get("pm10"),   data.get("aqi"),
+            data.get("mq135"),    data.get("mq2"),    data.get("mq7"),
+            data.get("mq135_aq"), data.get("mq2_aq"), data.get("mq7_aq"),
+            data.get("harorat"),  data.get("namlik"),  data.get("bosim"),
+            data.get("pm25"),     data.get("pm10"),    data.get("aqi"),
         ))
         conn.commit()
         return cur.lastrowid
