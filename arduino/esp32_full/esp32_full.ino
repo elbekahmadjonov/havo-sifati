@@ -138,10 +138,10 @@ struct SensorData {
 
 SensorData joriy_data;      // Oxirgi o'lchov natijasi (OLED uchun global)
 
-// ─── PMS5003 oxirgi yaxshi qiymatlar ────────────────────────
-float pms_last_pm25  = NAN;   // Oxirgi muvaffaqiyatli o'qilgan PM2.5
-float pms_last_pm10  = NAN;   // Oxirgi muvaffaqiyatli o'qilgan PM10
-uint8_t pms_xato_soni = 0;    // Ketma-ket muvaffaqiyatsiz urinishlar soni
+// ─── PMS5003 global qiymatlar (loop ichida doimiy yangilanadi) ──
+int   g_pm25 = -1;             // -1 = hali o'qilmagan / sensor ulanmagan
+int   g_pm10 = -1;
+unsigned long g_pms_vaqt = 0;  // Oxirgi muvaffaqiyatli o'qish (millis)
 
 // ═══════════════════════════════════════════════════════════════
 // YORDAMCHI: VAQTNI FORMATLASH (millis() dan MM:SS)
@@ -298,43 +298,21 @@ bool wifi_urinib_kor() {
 // PMS5003 — 32 baytlik paket o'qish
 // Qaytaradi: true = ma'lumot o'qildi, false = ma'lumot yo'q
 // ═══════════════════════════════════════════════════════════════
-bool pms5003_oqi(float& pm25, float& pm10) {
-  /*
-   * PMS5003 pin tartibi (standart emas!):
-   *   1-VCC(5V), 2-GND, 3-SET, 4-RXD(←ESP TX/GPIO17), 5-TXD(→ESP RX/GPIO16)
-   *
-   * 32 baytlik frame: [0x42][0x4D][len×2][PM1×2][PM2.5×2][PM10×2]...[cs×2]
-   *   buf[6-7]  = PM2.5 CF1 (standart) ← ISHLATILADI
-   *   buf[8-9]  = PM10  CF1 (standart) ← ISHLATILADI
-   *   buf[30-31]= Checksum (buf[0..29] yig'indisi)
-   *
-   * Muammo sabablari:
-   *   - ESP32 HardwareSerial buffer 256 bayt (8 paket), 10s da to'lib toshadi
-   *   - Buffer to'lsa eski paketlar bir-biriga aralashadi → header topilmaydi
-   */
+// ═══════════════════════════════════════════════════════════════
+// PMS5003 — FONDA O'QISH (NON-BLOCKING, loop() da har ~100ms chaqiriladi)
+//
+// Muammo: 10s da bir marta o'qish → buffer to'lib toshadi (256 bayt = 8 paket)
+// Yechim:  har loop iteratsiyasida o'qi → buffer hech qachon to'lmaydi
+//
+// Pin tartibi: 1-VCC(5V), 2-GND, 4-RXD(←GPIO17), 5-TXD(→GPIO16)
+// Frame: [0x42][0x4D][len×2][PM1×2][PM2.5×2][PM10×2]...[cs×2]
+//   buf[6-7] = PM2.5 CF1, buf[8-9] = PM10 CF1, buf[30-31] = checksum
+// ═══════════════════════════════════════════════════════════════
+void pms_loop_oqi() {
+  if (!ENABLE_PMS5003) return;
+  if (millis() < 30000)  return;   // 30s isinish vaqti
+  if (pmsSerial.available() < 32) return;   // Yetarli bayt yo'q — keyingisini kut
 
-  // ── 1. Buffer tozalash (overflow bo'lsa) ────────────────────
-  // >96 bayt = 3+ paket yig'ilgan → eski, ishonchsiz ma'lumot
-  if (pmsSerial.available() > 96) {
-    while (pmsSerial.available()) pmsSerial.read();
-    delay(100);   // Yangi paket boshlanishi uchun kutish
-    Serial.println("   PMS5003: buffer tozalandi");
-  }
-
-  // ── 2. Yetarli bayt yig'ilishini kutish (timeout: 1500ms) ───
-  // PMS5003 ~800ms da bir paket yuboradi, 1500ms yetarli
-  if (pmsSerial.available() < 32) {
-    unsigned long bosh = millis();
-    while (pmsSerial.available() < 32) {
-      if (millis() - bosh > 1500) {
-        Serial.println("   PMS5003: timeout — 1500ms da paket kelmadi");
-        return false;
-      }
-      delay(10);
-    }
-  }
-
-  // ── 3. Header qidirish va paket o'qish ──────────────────────
   uint8_t buf[32];
 
   while (pmsSerial.available() >= 32) {
@@ -342,31 +320,24 @@ bool pms5003_oqi(float& pm25, float& pm10) {
     if (!pmsSerial.available() || pmsSerial.peek() != 0x4D) continue;
 
     buf[0] = 0x42;
-    if (pmsSerial.readBytes(&buf[1], 31) != 31) return false;
+    if (pmsSerial.readBytes(&buf[1], 31) != 31) return;
 
-    // ── 4. Checksum tekshirish ─────────────────────────────────
+    // Checksum: buf[0..29] yig'indisi = buf[30]<<8 | buf[31]
     uint16_t cs = 0;
     for (int i = 0; i < 30; i++) cs += buf[i];
-    if (cs != (((uint16_t)buf[30] << 8) | buf[31])) {
-      Serial.println("   PMS5003: checksum xato");
-      return false;
-    }
+    if (cs != (((uint16_t)buf[30] << 8) | buf[31])) return;
 
-    // ── 5. PM qiymatlar va mantiqiy tekshiruv ─────────────────
-    float v25 = (float)(((uint16_t)buf[6] << 8) | buf[7]);
-    float v10 = (float)(((uint16_t)buf[8] << 8) | buf[9]);
+    int v25 = (int)(((uint16_t)buf[6] << 8) | buf[7]);
+    int v10 = (int)(((uint16_t)buf[8] << 8) | buf[9]);
 
-    if (v25 > 1000.0f || v10 > 2000.0f) {
-      Serial.print("   PMS5003: qiymat oraliqdan tashqarida (PM2.5=");
-      Serial.print(v25); Serial.print(", PM10="); Serial.print(v10); Serial.println(")");
-      return false;
-    }
+    // Mantiqiy tekshiruv
+    if (v25 > 1000 || v10 > 2000) return;
 
-    pm25 = v25;
-    pm10 = v10;
-    return true;
+    g_pm25      = v25;
+    g_pm10      = v10;
+    g_pms_vaqt  = millis();
+    return;   // Bir to'liq paket o'qildi — chiqish
   }
-  return false;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -422,52 +393,20 @@ SensorData sensorlar_oqi() {
   }
 
   // ─── PMS5003 (PM2.5, PM10) ─────────────────────────────────
+  // pms_loop_oqi() fonda har ~100ms da o'qiydi va g_pm25/g_pm10 ni yangilaydi
+  // Bu yerda faqat global qiymatlarni nusxalaymiz
   if (ENABLE_PMS5003) {
     if (millis() < 30000) {
-      // Sensor 30 sekund isinishi kerak
       Serial.print("   PMS5003 isinmoqda: ");
       Serial.print(millis() / 1000);
       Serial.println("s / 30s");
+    } else if (g_pm25 >= 0) {
+      d.pm25 = (float)g_pm25;
+      d.pm10 = (float)g_pm10;
+      Serial.print("   PM2.5: "); Serial.print(g_pm25); Serial.println(" ug/m3");
+      Serial.print("   PM10:  "); Serial.print(g_pm10); Serial.println(" ug/m3");
     } else {
-      // ── 3 marta urinish ──────────────────────────────────────
-      bool muvaffaq = false;
-      for (int urinish = 0; urinish < 3 && !muvaffaq; urinish++) {
-        float pm25_val = NAN, pm10_val = NAN;
-        if (pms5003_oqi(pm25_val, pm10_val)) {
-          d.pm25        = pm25_val;
-          d.pm10        = pm10_val;
-          pms_last_pm25 = pm25_val;
-          pms_last_pm10 = pm10_val;
-          pms_xato_soni = 0;
-          muvaffaq      = true;
-          Serial.print("   PM2.5: "); Serial.print(pm25_val, 1); Serial.println(" ug/m3");
-          Serial.print("   PM10:  "); Serial.print(pm10_val, 1); Serial.println(" ug/m3");
-        } else if (urinish < 2) {
-          Serial.print("   PMS5003: urinish ");
-          Serial.print(urinish + 1);
-          Serial.println("/3 xato — 500ms kutilmoqda...");
-          delay(500);
-        }
-      }
-
-      // ── Urinishlar muvaffaqiyatsiz — oxirgi yaxshi qiymatni ishlat ──
-      if (!muvaffaq) {
-        pms_xato_soni++;
-        // Ketma-ket 5 xatogacha oxirgi qiymatni yuboraveradi
-        // (sensor qisqa vaqt uzilsa dashboardda "Ulanmagan" ko'rsatmaydi)
-        if (!isnan(pms_last_pm25) && pms_xato_soni <= 5) {
-          d.pm25 = pms_last_pm25;
-          d.pm10 = pms_last_pm10;
-          Serial.print("   PMS5003: xato #"); Serial.print(pms_xato_soni);
-          Serial.print("/5 — oxirgi qiymat: PM2.5=");
-          Serial.print(pms_last_pm25, 1); Serial.println(" ug/m3");
-        } else {
-          // 5 dan ortiq ketma-ket xato → null yuborish (sensor haqiqatan uzilgan)
-          Serial.print("   PMS5003: ");
-          Serial.print(pms_xato_soni);
-          Serial.println(" ketma-ket xato — null yuboriladi");
-        }
-      }
+      Serial.println("   PMS5003: hali o'qilmagan — null yuboriladi");
     }
   }
 
@@ -1043,10 +982,13 @@ void loop() {
     wifi_ulangan = true;
   }
 
+  // ─── PMS5003 fon o'qish (har ~100ms — buffer to'lib toshmasin) ──
+  pms_loop_oqi();
+
   // ─── OLED ekranini yangilash (har 1s, sahifa har 5s) ───────
   if (ENABLE_OLED) {
     oled_yangilash(joriy_data);
   }
 
-  delay(100);    // Protsessor yukini kamaytirish
+  delay(100);    // ~100ms sikliy kutish
 }

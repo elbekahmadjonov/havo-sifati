@@ -112,11 +112,48 @@ def _epa_interpolatsiya(c: float, breakpoints: list) -> Optional[int]:
 
 
 def _pm25_aqi(pm25: float) -> Optional[int]:
+    if pm25 < 0:
+        return None
     return _epa_interpolatsiya(pm25, _PM25_BP)
 
 
 def _pm10_aqi(pm10: float) -> Optional[int]:
     return _epa_interpolatsiya(pm10, _PM10_BP)
+
+
+def pm25_to_aqi(pm25: float) -> int:
+    """
+    PM2.5 (μg/m³) dan EPA standart AQI hisoblash.
+
+    Breakpoint jadvali (EPA 2012):
+      0–12.0    → AQI   0–50   (Yaxshi)
+      12.1–35.4 → AQI  51–100  (O'rtacha)
+      35.5–55.4 → AQI 101–150  (Sezgir guruh uchun zararli)
+      55.5–150.4→ AQI 151–200  (Zararli)
+      150.5–250.4→AQI 201–300  (Juda zararli)
+      250.5–350.4→AQI 301–400  (Xavfli)
+      350.5–500.4→AQI 401–500  (Favqulodda xavfli)
+
+    Misol: pm25_to_aqi(40) → 111
+           pm25_to_aqi(12) → 50
+           pm25_to_aqi(0)  → 0
+    """
+    if pm25 < 0:
+        return 0
+    breakpoints = [
+        (0.0,   12.0,   0,  50),
+        (12.1,  35.4,  51, 100),
+        (35.5,  55.4, 101, 150),
+        (55.5,  150.4, 151, 200),
+        (150.5, 250.4, 201, 300),
+        (250.5, 350.4, 301, 400),
+        (350.5, 500.4, 401, 500),
+    ]
+    for pm_low, pm_high, aqi_low, aqi_high in breakpoints:
+        if pm_low <= pm25 <= pm_high:
+            aqi = ((aqi_high - aqi_low) / (pm_high - pm_low)) * (pm25 - pm_low) + aqi_low
+            return round(aqi)
+    return 500
 
 
 def mq_analog_to_aqi(analog: int) -> int:
@@ -198,8 +235,9 @@ def hisobla_aqi(
 
     # ── Ustunlik zanjiri ─────────────────────────────────────────
     if pm_aqilar:
-        # PM bor — PM ustun; MQ analog ham qo'shimcha hisobga olinadi
-        aqi = max(pm_aqilar + mq_analog_aqilar)
+        # PM2.5/PM10 bor → FAQAT PM ishlatiladi (EPA rasmiy, eng ishonchli)
+        # MQ analog hisobga olinmaydi — kalibrlanmagan sensor PM ni ezmaydi
+        aqi = max(pm_aqilar)
     elif mq_analog_aqilar:
         # PM yo'q, MQ analog bor — eng yuqori analogni ol
         aqi = max(mq_analog_aqilar)
