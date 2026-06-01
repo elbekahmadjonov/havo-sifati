@@ -78,9 +78,8 @@ _MQ_TAVSIF = {
     },
 }
 
-# TODO: kelajakda real ppm qiymatlardan hisoblashga o'tish
 _MQ_AQI_JADVAL = {
-    0: 30,   # hammasi toza
+    0: 30,
     1: 75,
     2: 125,
     3: 175,
@@ -91,18 +90,13 @@ _NAMLIK_CHEGARASI  = 80.0
 _HARORAT_BONUS     = 25
 _NAMLIK_BONUS      = 15
 
-# MQ analog breakpointlar (ESP32 ADC 12-bit: 0-4095)
-# MUHIM: Bu kalibrlanmagan TAXMINIY darajalash.
-# Real ppm hisoblash uchun R0 kalibrovkasi va sensor-spesifik egri chiziq kerak.
-# Past qiymat = toza havo, yuqori qiymat = ifloslik ko'rsatkichi.
 _MQ_ANALOG_BP = [
-    (   0,  799,   0,  50),   # Yaxshi      — toza havo (400-900 odatiy fon)
-    ( 800, 1599,  51, 100),   # O'rtacha    — seziladi, lekin xavfsiz
-    (1600, 2399, 101, 150),   # Sezgir      — ehtiyot bo'lish kerak
-    (2400, 3199, 151, 200),   # Zararli     — faoliyatni cheklash
-    (3200, 4095, 201, 300),   # Juda zararli— tashqarida bo'lmang
+    (   0,  799,   0,  50),
+    ( 800, 1599,  51, 100),
+    (1600, 2399, 101, 150),
+    (2400, 3199, 151, 200),
+    (3200, 4095, 201, 300),
 ]
-
 
 def _epa_interpolatsiya(c: float, breakpoints: list) -> Optional[int]:
     for c_min, c_max, i_min, i_max in breakpoints:
@@ -110,34 +104,15 @@ def _epa_interpolatsiya(c: float, breakpoints: list) -> Optional[int]:
             return round((i_max - i_min) / (c_max - c_min) * (c - c_min) + i_min)
     return 500 if c > breakpoints[-1][1] else None
 
-
 def _pm25_aqi(pm25: float) -> Optional[int]:
     if pm25 < 0:
         return None
     return _epa_interpolatsiya(pm25, _PM25_BP)
 
-
 def _pm10_aqi(pm10: float) -> Optional[int]:
     return _epa_interpolatsiya(pm10, _PM10_BP)
 
-
 def pm25_to_aqi(pm25: float) -> int:
-    """
-    PM2.5 (μg/m³) dan EPA standart AQI hisoblash.
-
-    Breakpoint jadvali (EPA 2012):
-      0–12.0    → AQI   0–50   (Yaxshi)
-      12.1–35.4 → AQI  51–100  (O'rtacha)
-      35.5–55.4 → AQI 101–150  (Sezgir guruh uchun zararli)
-      55.5–150.4→ AQI 151–200  (Zararli)
-      150.5–250.4→AQI 201–300  (Juda zararli)
-      250.5–350.4→AQI 301–400  (Xavfli)
-      350.5–500.4→AQI 401–500  (Favqulodda xavfli)
-
-    Misol: pm25_to_aqi(40) → 111
-           pm25_to_aqi(12) → 50
-           pm25_to_aqi(0)  → 0
-    """
     if pm25 < 0:
         return 0
     breakpoints = [
@@ -155,24 +130,10 @@ def pm25_to_aqi(pm25: float) -> int:
             return round(aqi)
     return 500
 
-
 def mq_analog_to_aqi(analog: int) -> int:
-    """
-    ESP32 ADC 12-bit analog qiymatidan (0-4095) AQI hisoblash.
-
-    DIQQAT: Bu taxminiy darajalash — sensorlar kalibrlanmagan.
-    Aniq ppm o'lchash uchun maxsus uskuna va R0 kalibrovkasi kerak.
-    Ushbu funksiya faqat nisbiy holat ko'rsatkichi sifatida ishlatiladi.
-
-    Args:
-        analog: ADC o'qish qiymati (0–4095)
-    Returns:
-        Taxminiy AQI (0–300)
-    """
     analog = max(0, min(4095, int(analog)))
     v = _epa_interpolatsiya(float(analog), _MQ_ANALOG_BP)
     return v if v is not None else 300
-
 
 def _mq_aqi(
     mq135: Optional[int],
@@ -196,7 +157,6 @@ def _mq_aqi(
 
     return int(min(aqi, 500))
 
-
 def hisobla_aqi(
     mq135:    Optional[int]   = None,
     mq2:      Optional[int]   = None,
@@ -210,13 +170,6 @@ def hisobla_aqi(
     mq2_aq:   Optional[int]   = None,
     mq7_aq:   Optional[int]   = None,
 ) -> int:
-    """
-    AQI hisoblash — uch darajali ustunlik:
-      1. PM2.5 / PM10 (PMS5003 — EPA rasmiy formula, eng ishonchli)
-      2. MQ analog AO (0-4095) — kalibrlanmagan nisbiy o'lchov
-      3. MQ raqamli DO (0/1)   — faqat analog mavjud bo'lmasa
-    """
-    # ── 1. PM sensorlar (EPA rasmiy, eng yuqori ustunlik) ────────
     pm_aqilar = []
     if pm25 is not None and pm25 >= 0:
         v = _pm25_aqi(pm25)
@@ -227,25 +180,18 @@ def hisobla_aqi(
         if v is not None:
             pm_aqilar.append(v)
 
-    # ── 2. MQ analog (kalibrlanmagan nisbiy) ────────────────────
     mq_analog_aqilar = []
     for aq in (mq135_aq, mq2_aq, mq7_aq):
         if aq is not None and aq >= 0:
             mq_analog_aqilar.append(mq_analog_to_aqi(aq))
 
-    # ── Ustunlik zanjiri ─────────────────────────────────────────
     if pm_aqilar:
-        # PM2.5/PM10 bor → FAQAT PM ishlatiladi (EPA rasmiy, eng ishonchli)
-        # MQ analog hisobga olinmaydi — kalibrlanmagan sensor PM ni ezmaydi
         aqi = max(pm_aqilar)
     elif mq_analog_aqilar:
-        # PM yo'q, MQ analog bor — eng yuqori analogni ol
         aqi = max(mq_analog_aqilar)
     else:
-        # Faqat raqamli DO — eski ball tizimi
         aqi = _mq_aqi(mq135, mq2, mq7, harorat, namlik)
 
-    # ── Bosim tuzatmasi (kichik ta'sir) ─────────────────────────
     if bosim is not None:
         if bosim < 990.0:
             aqi += 10
@@ -253,7 +199,6 @@ def hisobla_aqi(
             aqi -= 5
 
     return int(min(max(aqi, 0), 500))
-
 
 def aqi_daraja(aqi: int) -> dict:
     aqi = max(0, min(500, int(aqi)))
@@ -272,7 +217,6 @@ def aqi_daraja(aqi: int) -> dict:
         "aqi": aqi, "daraja": last[2], "rang": last[3],
         "emoji": last[4], "tavsiya_uz": last[5], "tavsiya_en": last[6],
     }
-
 
 def sog_liq_tavsiya(
     aqi:     int,
@@ -312,7 +256,6 @@ def sog_liq_tavsiya(
         return asosiy + " | " + " | ".join(qo_shimcha)
     return asosiy
 
-
 def sensor_holati(
     mq135: Optional[int] = None,
     mq2:   Optional[int] = None,
@@ -328,7 +271,6 @@ def sensor_holati(
             xabarlar.append(_MQ_TAVSIF[kalit]["iflos"])
 
     return xabarlar if xabarlar else ["Barcha sensorlar normal — havo toza"]
-
 
 def kunlik_statistika(measurements: list[dict]) -> dict:
     bo_sh = {
@@ -366,7 +308,6 @@ def kunlik_statistika(measurements: list[dict]) -> dict:
         "olchov_soni":     len(qiymatlar),
     }
 
-
 def get_overall_aqi(m: dict) -> int:
     return hisobla_aqi(
         mq135=m.get("mq135"),
@@ -382,20 +323,16 @@ def get_overall_aqi(m: dict) -> int:
         mq7_aq=m.get("mq7_aq"),
     )
 
-
 def get_aqi_category(aqi: int) -> dict:
     return aqi_daraja(aqi)
 
-
 def get_health_advice(aqi: int) -> str:
     return sog_liq_tavsiya(aqi)
-
 
 def _test_chiqar(nomi: str, aqi: int, daraja_kutilgan: str) -> None:
     info   = aqi_daraja(aqi)
     status = "✅" if info["daraja"] == daraja_kutilgan else "❌"
     print(f"  {status} {nomi:<35} AQI={aqi:3d}  {info['emoji']} {info['daraja']}")
-
 
 def testlar():
     print("\n" + "=" * 60)
@@ -490,7 +427,6 @@ def testlar():
 
     print("\n✅ Barcha testlar muvaffaqiyatli o'tdi!")
     print("=" * 60)
-
 
 if __name__ == "__main__":
     testlar()

@@ -32,7 +32,6 @@ log = logging.getLogger(__name__)
 
 TOSHKENT_TZ = timezone(timedelta(hours=5))
 
-
 def _vaqt_farq_matn(vaqt_str: str | None) -> str:
     if not vaqt_str:
         return "Noma'lum"
@@ -46,9 +45,7 @@ def _vaqt_farq_matn(vaqt_str: str | None) -> str:
     except Exception:
         return "Noma'lum"
 
-
 bashorat_modeli = ml_predictor.HavoSifatBashorati()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,7 +55,6 @@ async def lifespan(app: FastAPI):
     log.info("Dashboard -> http://localhost:8000")
     yield
     log.info("Server to'xtatildi")
-
 
 app = FastAPI(
     title="Havo Sifati Monitoringi",
@@ -76,13 +72,12 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
 class SensorMalumot(BaseModel):
     device_id:  str            = "esp32_001"
     mq135:      Optional[int]  = None
     mq2:        Optional[int]  = None
     mq7:        Optional[int]  = None
-    mq135_aq:   Optional[int]  = None   # ADC 0-4095 (kalibrlanmagan nisbiy)
+    mq135_aq:   Optional[int]  = None
     mq2_aq:     Optional[int]  = None
     mq7_aq:     Optional[int]  = None
     harorat:    Optional[float] = None
@@ -90,7 +85,6 @@ class SensorMalumot(BaseModel):
     bosim:      Optional[float] = None
     pm25:       Optional[float] = None
     pm10:       Optional[float] = None
-
 
 @app.post("/api/sensor", summary="ESP32 dan sensor ma'lumotlari qabul qilish")
 async def sensor_qabul(m: SensorMalumot):
@@ -108,7 +102,6 @@ async def sensor_qabul(m: SensorMalumot):
     if yozuv_id % 200 == 0:
         database.eski_malumot_tozalash()
 
-    # TODO: statistika yangilash kerak
     log.info("ID:%-4d AQI:%-3d (%s) | %s", yozuv_id, aqi, kat["daraja"], m.device_id)
 
     return {
@@ -118,7 +111,6 @@ async def sensor_qabul(m: SensorMalumot):
         "daraja":  kat["daraja"],
         "vaqt":    datetime.now(TOSHKENT_TZ).isoformat(),
     }
-
 
 @app.get("/api/data", summary="Sensor ma'lumotlari (jadval + grafik)")
 async def api_data(
@@ -137,7 +129,6 @@ async def api_data(
         "jami":        database.statistika(soat)["olchov_soni"],
         "server_vaqt": datetime.now(TOSHKENT_TZ).isoformat(),
     }
-
 
 @app.get("/api/aqi", summary="Hozirgi AQI qiymati va holati")
 async def api_aqi():
@@ -191,7 +182,6 @@ async def api_aqi():
         "oxirgi_korinish": oxirgi_korinish,
     }
 
-
 @app.get("/api/predict", summary="Keyingi 1 soatlik AQI bashorati")
 async def api_predict():
     tarix  = database.vaqt_oraligi_malumotlar(soat=3)
@@ -204,11 +194,9 @@ async def api_predict():
 
     return natija
 
-
 @app.get("/api/stats", summary="Statistika (o'rtacha, max, min)")
 async def api_stats(soat: int = Query(24, ge=1, le=720)):
     return database.statistika(soat)
-
 
 @app.get("/api/export/csv", summary="Barcha ma'lumotlarni CSV yuklab olish")
 async def api_export_csv():
@@ -232,21 +220,17 @@ async def api_export_csv():
         headers={"Content-Disposition": f"attachment; filename={fayl_nomi}"},
     )
 
-
 @app.get("/", summary="Asosiy dashboard sahifasi")
 async def sahifa_asosiy():
     return FileResponse("templates/index.html")
-
 
 @app.get("/history", summary="Tarix va grafiklar sahifasi")
 async def sahifa_tarix():
     return FileResponse("templates/history.html")
 
-
 @app.get("/about", summary="Loyiha haqida sahifa")
 async def sahifa_haqida():
     return FileResponse("templates/about.html")
-
 
 if __name__ == "__main__":
     print("=" * 55)

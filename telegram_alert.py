@@ -13,10 +13,8 @@ MIN_INTERVAL = 30
 
 _oxirgi_yuborish: datetime | None = None
 
-
 def telegram_faolmi() -> bool:
     return bool(BOT_TOKEN and CHAT_ID)
-
 
 def xabar_yuborish(matn: str) -> bool:
     if not telegram_faolmi():
@@ -35,7 +33,6 @@ def xabar_yuborish(matn: str) -> bool:
     except requests.RequestException as e:
         log.error("❌ Telegram ulanish xatosi: %s", e)
     return False
-
 
 def aqi_tekshir_va_xabarlash(aqi: int, daraja: str, sensor_holat: dict) -> bool:
     global _oxirgi_yuborish

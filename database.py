@@ -9,7 +9,6 @@ DB_FAYL     = "havo_data.db"
 SAQLASH_KUN = 30
 TOSHKENT_TZ = timezone(timedelta(hours=5))
 
-
 @contextmanager
 def get_db():
     conn = sqlite3.connect(DB_FAYL)
@@ -18,7 +17,6 @@ def get_db():
         yield conn
     finally:
         conn.close()
-
 
 def db_yaratish():
     with get_db() as conn:
@@ -44,7 +42,6 @@ def db_yaratish():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_vaqt    ON measurements(vaqt)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_device  ON measurements(device_id)")
 
-        # Eski bazalarga yangi ustunlarni qo'shish (idempotent)
         mavjud = {
             row[1]
             for row in conn.execute("PRAGMA table_info(measurements)").fetchall()
@@ -71,7 +68,6 @@ def db_yaratish():
         conn.commit()
     log.info("✅ Ma'lumotlar bazasi tayyor: %s", DB_FAYL)
 
-
 def malumot_saqlash(data: dict) -> int:
     vaqt = datetime.now(TOSHKENT_TZ).isoformat()
     with get_db() as conn:
@@ -92,14 +88,12 @@ def malumot_saqlash(data: dict) -> int:
         conn.commit()
         return cur.lastrowid
 
-
 def oxirgi_olchov() -> dict | None:
     with get_db() as conn:
         row = conn.execute(
             "SELECT * FROM measurements ORDER BY id DESC LIMIT 1"
         ).fetchone()
     return dict(row) if row else None
-
 
 def qurilma_onlinemi(device_id: str = "esp32_001", daqiqa: float = 0.5) -> bool:
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(minutes=daqiqa)).isoformat()
@@ -110,7 +104,6 @@ def qurilma_onlinemi(device_id: str = "esp32_001", daqiqa: float = 0.5) -> bool:
         ).fetchone()
     return row[0] > 0
 
-
 def vaqt_oraligi_malumotlar(soat: int = 1) -> list[dict]:
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(hours=soat)).isoformat()
     with get_db() as conn:
@@ -120,7 +113,6 @@ def vaqt_oraligi_malumotlar(soat: int = 1) -> list[dict]:
         ).fetchall()
     return [dict(r) for r in rows]
 
-
 def jadval_malumotlar(limit: int = 50, offset: int = 0) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
@@ -128,7 +120,6 @@ def jadval_malumotlar(limit: int = 50, offset: int = 0) -> list[dict]:
             (limit, offset)
         ).fetchall()
     return [dict(r) for r in rows]
-
 
 def statistika(soat: int = 24) -> dict:
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(hours=soat)).isoformat()
@@ -163,7 +154,6 @@ def statistika(soat: int = 24) -> dict:
         "pm10":     {"orta": r2(row["orta_pm10"])},
     }
 
-
 def eski_malumot_tozalash():
     chegara = (datetime.now(TOSHKENT_TZ) - timedelta(days=SAQLASH_KUN)).isoformat()
     with get_db() as conn:
@@ -171,7 +161,6 @@ def eski_malumot_tozalash():
         conn.commit()
         if cur.rowcount:
             log.info("🧹 %d ta eski yozuv o'chirildi.", cur.rowcount)
-
 
 def ogohlantirish_saqlash(sensor_nomi: str, qiymat: str, xabar: str):
     vaqt = datetime.now(TOSHKENT_TZ).isoformat()

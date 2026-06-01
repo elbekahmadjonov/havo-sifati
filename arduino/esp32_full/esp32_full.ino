@@ -1,30 +1,5 @@
-/*
-  ╔══════════════════════════════════════════════════════════════╗
-  ║   HAVO SIFATI MONITORINGI — ESP32 To'liq Versiya v3.0      ║
-  ║   Diplom ishi, 2025-2026                                    ║
-  ╠══════════════════════════════════════════════════════════════╣
-  ║   Ulangan sensorlar:                                        ║
-  ║     MQ-135 → DO:GPIO4  — CO₂/NH₃/Benzol                    ║
-  ║     MQ-2   → DO:GPIO5  — Metan/LPG/Tutun                   ║
-  ║     MQ-7   → DO:GPIO19 — Uglerod oksidi (CO)               ║
-  ║     DHT22  → GPIO23   (data)        — Harorat va namlik     ║
-  ║     OLED   → SDA=21, SCL=22 (I2C, 0x3C)                   ║
-  ║     BMP280 → SDA=21, SCL=22 (I2C, 0x76) — Bosim  ← YANGI ║
-  ╠══════════════════════════════════════════════════════════════╣
-  ║   Kerakli kutubxonalar (Arduino Library Manager):           ║
-  ║     - ArduinoJson (Benoit Blanchon) v6+                     ║
-  ║     - DHT sensor library (Adafruit)                         ║
-  ║     - Adafruit SSD1306                                      ║
-  ║     - Adafruit GFX Library                                  ║
-  ║     - Adafruit BMP280 Library                               ║
-  ╠══════════════════════════════════════════════════════════════╣
-  ║   PMS5003 → UART2 (RX=16 ← TXD, TX=17 → RXD) — PM2.5/PM10 ║
-  ╚══════════════════════════════════════════════════════════════╝
-*/
 
-// ═══════════════════════════════════════════════════════════════
-// KUTUBXONALAR
-// ═══════════════════════════════════════════════════════════════
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -33,119 +8,88 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-// BMP280 bosim sensori kutubxonasi (Adafruit BMP280 Library)
 #include <Adafruit_BMP280.h>
-// #include <SoftwareSerial.h>       // SDS011 uchun UART (kelajakda)
 
-// ═══════════════════════════════════════════════════════════════
-// KONFIGURATSIYA — FAQAT SHU BO'LIMNI O'ZGARTIRING!
-// ═══════════════════════════════════════════════════════════════
+const char* WIFI_SSID     = "esp32";       
+const char* WIFI_PASSWORD = "12123434";     
 
-// Wi-Fi sozlamalari
-const char* WIFI_SSID     = "esp32";       // <- o'zgartiring
-const char* WIFI_PASSWORD = "12123434";     // <- o'zgartiring
-
-// Server manzili (cmd → ipconfig → IPv4 Address ni ko'ring)
 const char* SERVER_URL    = "http://10.83.229.245:8000/api/sensor";
 
-// Qurilma identifikatori (bir nechta ESP32 bo'lsa farqlash uchun)
 const char* DEVICE_ID     = "esp32_001";
 
-// Ma'lumot yuborish oralig'i (millisekund)
-const unsigned long YUBORISH_INTERVALI = 10000;   // 10 sekund
+const unsigned long YUBORISH_INTERVALI = 10000;   
 
-// OLED sahifa almashish vaqti (millisekund)
-const unsigned long SAHIFA_INTERVAL    = 5000;    // 5 sekund
+const unsigned long SAHIFA_INTERVAL    = 5000;    
 
-// Wi-Fi qayta ulanish oralig'i (oflayn rejimda)
-const unsigned long QAYTA_ULANISH_MS   = 30000;   // 30 sekund
+const unsigned long QAYTA_ULANISH_MS   = 30000;   
 
-// ─── Sensorlarni yoqish / o'chirish ──────────────────────────
-// Ulangan sensor = true  |  Ulanmagan sensor = false
-const bool ENABLE_MQ135  = true;    // GPIO 4  — ULANGAN
-const bool ENABLE_MQ2    = true;    // GPIO 5  — ULANGAN
-const bool ENABLE_MQ7    = true;    // GPIO 19 — ULANGAN
-const bool ENABLE_DHT22  = true;    // GPIO 23 — ULANGAN
-const bool ENABLE_OLED   = true;    // I2C (21/22) — ULANGAN
+const bool ENABLE_MQ135  = true;    
+const bool ENABLE_MQ2    = true;    
+const bool ENABLE_MQ7    = true;    
+const bool ENABLE_DHT22  = true;    
+const bool ENABLE_OLED   = true;    
 
-const bool ENABLE_BMP280  = true;   // I2C 0x76
-const bool ENABLE_PMS5003 = true;   // UART2 (RX=16, TX=17) — PM2.5/PM10
+const bool ENABLE_BMP280  = true;   
+const bool ENABLE_PMS5003 = true;   
 
-// ═══════════════════════════════════════════════════════════════
-// GPIO PINLARI
-// ═══════════════════════════════════════════════════════════════
-const int MQ135_PIN    = 4;   // MQ-135 raqamli chiqishi (DO)
-const int MQ2_PIN      = 5;   // MQ-2   raqamli chiqishi (DO)
-const int MQ7_PIN      = 19;  // MQ-7   raqamli chiqishi (DO)
-// AO (analog out) pinlari — ADC1 input-only, pinMode kerak emas
-const int MQ135_AO_PIN = 35;  // MQ-135 analog → ADC1_CH7 (GPIO35, input-only)
-const int MQ2_AO_PIN   = 32;  // MQ-2   analog → ADC1_CH4 (GPIO32)
-const int MQ7_AO_PIN   = 34;  // MQ-7   analog → ADC1_CH6 (GPIO34, input-only)
-const int DHT22_PIN    = 23;  // DHT22  data pini
-// PMS5003 UART2 pinlari
-const int PMS5003_RX   = 16;  // PMS5003 TX → ESP32 GPIO16 (RX2)
-const int PMS5003_TX   = 17;  // PMS5003 RX → ESP32 GPIO17 (TX2)
-#define   DHT_TYPE  DHT22    // DHT sensor turi
+const int MQ135_PIN    = 5;   
+const int MQ2_PIN      = 4;   
+const int MQ7_PIN      = 19;  
 
-// OLED ekran sozlamalari
-#define OLED_WIDTH   128     // Piksel eni
-#define OLED_HEIGHT  64      // Piksel balandligi
-#define OLED_ADDRESS 0x3C    // I2C manzil (alternativ: 0x3D)
-#define OLED_RESET   -1      // Reset pini (-1 = ESP32 ichki reset)
+const int MQ135_AO_PIN = 35;  
+const int MQ2_AO_PIN   = 32;  
+const int MQ7_AO_PIN   = 34;  
+const int DHT22_PIN    = 23;  
 
-#define BMP280_ADDRESS 0x76   // BMP280 I2C manzili (OLED bilan bir shinada)
-// #define SDS011_RX_PIN  16     // SDS011 RX pini (kelajakda)
-// #define SDS011_TX_PIN  17     // SDS011 TX pini (kelajakda)
+const int PMS5003_RX   = 16;  
+const int PMS5003_TX   = 17;  
+#define   DHT_TYPE  DHT22    
 
-// ═══════════════════════════════════════════════════════════════
-// OBYEKTLAR
-// ═══════════════════════════════════════════════════════════════
+#define OLED_WIDTH   128     
+#define OLED_HEIGHT  64      
+#define OLED_ADDRESS 0x3C    
+#define OLED_RESET   -1      
+
+#define BMP280_ADDRESS 0x76   
+
 DHT           dht(DHT22_PIN, DHT_TYPE);
 Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &Wire, OLED_RESET);
 
-Adafruit_BMP280  bmp;           // BMP280 I2C
-HardwareSerial   pmsSerial(2);  // PMS5003 — UART2
+Adafruit_BMP280  bmp;           
+HardwareSerial   pmsSerial(2);  
 
-// ═══════════════════════════════════════════════════════════════
-// GLOBAL O'ZGARUVCHILAR
-// ═══════════════════════════════════════════════════════════════
-unsigned long oxirgi_yuborish    = 0;       // Oxirgi yuborish vaqti (ms)
-unsigned long oxirgi_sahifa_alm  = 0;       // OLED sahifa almashish vaqti
-unsigned long oxirgi_oled_draw   = 0;       // OLED oxirgi chizilgan vaqt
-unsigned long oxirgi_qayta_ulan  = 0;       // Wi-Fi qayta ulanish vaqti
+unsigned long oxirgi_yuborish    = 0;       
+unsigned long oxirgi_sahifa_alm  = 0;       
+unsigned long oxirgi_oled_draw   = 0;       
+unsigned long oxirgi_qayta_ulan  = 0;       
 
-int  joriy_sahifa    = 0;       // Hozirgi OLED sahifasi: 0, 1, 2
-int  yuborish_soni   = 0;       // Muvaffaqiyatli yuborishlar soni
-int  xato_soni       = 0;       // Ketma-ket xatolar soni
-bool server_ulangan  = false;   // Oxirgi yuborish holati
-bool wifi_ulangan    = false;   // Joriy Wi-Fi holati
-char oxirgi_vaqt[9]  = "--:--"; // Oxirgi yuborish vaqti (MM:SS from start)
+int  joriy_sahifa    = 0;       
+int  yuborish_soni   = 0;       
+int  xato_soni       = 0;       
+bool server_ulangan  = false;   
+bool wifi_ulangan    = false;   
+char oxirgi_vaqt[9]  = "--:--"; 
 
-// ─── Sensor ma'lumotlari strukturasi ─────────────────────────
 struct SensorData {
-  int   mq135     = -1;     // DO: 1=toza, 0=gaz, -1=o'chirilgan (null yuboriladi)
+  int   mq135     = -1;     
   int   mq2       = -1;
   int   mq7       = -1;
-  int   mq135_aq  = -1;     // AO: 0-4095 (ADC 12-bit), -1=o'chirilgan
+  int   mq135_aq  = -1;     
   int   mq2_aq    = -1;
   int   mq7_aq    = -1;
-  float harorat   = NAN;    // NAN = o'chirilgan yoki xato (null yuboriladi)
+  float harorat   = NAN;    
   float namlik    = NAN;
-  float bosim     = NAN;    // BMP280 (hPa)
-  float pm25      = NAN;    // PMS5003 (μg/m³)
-  float pm10      = NAN;    // PMS5003 (μg/m³)
+  float bosim     = NAN;    
+  float pm25      = NAN;    
+  float pm10      = NAN;    
 };
 
-SensorData joriy_data;      // Oxirgi o'lchov natijasi (OLED uchun global)
+SensorData joriy_data;      
 
-// ─── PMS5003 global qiymatlar (loop ichida doimiy yangilanadi) ──
-int   g_pm25 = -1;             // -1 = hali o'qilmagan / sensor ulanmagan
+int   g_pm25 = -1;             
 int   g_pm10 = -1;
-unsigned long g_pms_vaqt = 0;  // Oxirgi muvaffaqiyatli o'qish (millis)
+unsigned long g_pms_vaqt = 0;  
 
-// ═══════════════════════════════════════════════════════════════
-// YORDAMCHI: VAQTNI FORMATLASH (millis() dan MM:SS)
-// ═══════════════════════════════════════════════════════════════
 void vaqt_yangilash() {
   unsigned long jami_sekund = millis() / 1000;
   int minut  = (jami_sekund / 60) % 60;
@@ -153,9 +97,6 @@ void vaqt_yangilash() {
   snprintf(oxirgi_vaqt, sizeof(oxirgi_vaqt), "%02d:%02d", minut, sekund);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// UMUMIY HAVO SIFATI HOLATI
-// ═══════════════════════════════════════════════════════════════
 const char* holat_aniqlash(const SensorData& d) {
   if ((ENABLE_MQ135 && d.mq135 == 0) ||
       (ENABLE_MQ2   && d.mq2   == 0) ||
@@ -165,9 +106,6 @@ const char* holat_aniqlash(const SensorData& d) {
   return "YAXSHI";
 }
 
-// ═══════════════════════════════════════════════════════════════
-// WI-FI ULANISH — setup() da bloklovchi ulanish
-// ═══════════════════════════════════════════════════════════════
 void wifi_ga_ulan() {
   Serial.print("\n📡 Wi-Fi ga ulanilmoqda: ");
   Serial.println(WIFI_SSID);
@@ -193,7 +131,7 @@ void wifi_ga_ulan() {
     Serial.print(".");
     nuqta++;
 
-    // Har 2 sekundda OLED yangilash
+    
     if (ENABLE_OLED && nuqta % 4 == 0) {
       oled.clearDisplay();
       oled.setCursor(0, 0);
@@ -207,7 +145,7 @@ void wifi_ga_ulan() {
       oled.display();
     }
 
-    if (++urinish >= 40) {   // 20 sekund: qayta urinish
+    if (++urinish >= 40) {   
       Serial.println("\n⚠️  20s kutildi, qayta urinilmoqda...");
       WiFi.disconnect();
       delay(2000);
@@ -234,9 +172,6 @@ void wifi_ga_ulan() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// WI-FI URINISH — bloklanmaydigan (15s kutadi, bo'lmasa oflayn)
-// ═══════════════════════════════════════════════════════════════
 bool wifi_urinib_kor() {
   Serial.print("\n📡 Wi-Fi ga ulanilmoqda: ");
   Serial.println(WIFI_SSID);
@@ -252,7 +187,7 @@ bool wifi_urinib_kor() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  // 15 sekund kutatamiz (30 × 500ms)
+  
   for (int i = 0; i < 30; i++) {
     delay(500);
     Serial.print(".");
@@ -274,7 +209,7 @@ bool wifi_urinib_kor() {
     }
   }
 
-  // Ulanmadi — oflayn rejim
+  
   wifi_ulangan = false;
   WiFi.disconnect();
   Serial.println();
@@ -294,24 +229,10 @@ bool wifi_urinib_kor() {
   return false;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// PMS5003 — 32 baytlik paket o'qish
-// Qaytaradi: true = ma'lumot o'qildi, false = ma'lumot yo'q
-// ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-// PMS5003 — FONDA O'QISH (NON-BLOCKING, loop() da har ~100ms chaqiriladi)
-//
-// Muammo: 10s da bir marta o'qish → buffer to'lib toshadi (256 bayt = 8 paket)
-// Yechim:  har loop iteratsiyasida o'qi → buffer hech qachon to'lmaydi
-//
-// Pin tartibi: 1-VCC(5V), 2-GND, 4-RXD(←GPIO17), 5-TXD(→GPIO16)
-// Frame: [0x42][0x4D][len×2][PM1×2][PM2.5×2][PM10×2]...[cs×2]
-//   buf[6-7] = PM2.5 CF1, buf[8-9] = PM10 CF1, buf[30-31] = checksum
-// ═══════════════════════════════════════════════════════════════
 void pms_loop_oqi() {
   if (!ENABLE_PMS5003) return;
-  if (millis() < 30000)  return;   // 30s isinish vaqti
-  if (pmsSerial.available() < 32) return;   // Yetarli bayt yo'q — keyingisini kut
+  if (millis() < 30000)  return;   
+  if (pmsSerial.available() < 32) return;   
 
   uint8_t buf[32];
 
@@ -322,7 +243,7 @@ void pms_loop_oqi() {
     buf[0] = 0x42;
     if (pmsSerial.readBytes(&buf[1], 31) != 31) return;
 
-    // Checksum: buf[0..29] yig'indisi = buf[30]<<8 | buf[31]
+    
     uint16_t cs = 0;
     for (int i = 0; i < 30; i++) cs += buf[i];
     if (cs != (((uint16_t)buf[30] << 8) | buf[31])) return;
@@ -330,41 +251,38 @@ void pms_loop_oqi() {
     int v25 = (int)(((uint16_t)buf[6] << 8) | buf[7]);
     int v10 = (int)(((uint16_t)buf[8] << 8) | buf[9]);
 
-    // Mantiqiy tekshiruv
+    
     if (v25 > 1000 || v10 > 2000) return;
 
     g_pm25      = v25;
     g_pm10      = v10;
     g_pms_vaqt  = millis();
-    return;   // Bir to'liq paket o'qildi — chiqish
+    return;   
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SENSORLARDAN O'QISH
-// ═══════════════════════════════════════════════════════════════
 SensorData sensorlar_oqi() {
   SensorData d;
 
-  // ─── MQ-135 (CO₂, NH₃, Benzol) — DO:GPIO4, AO:GPIO35 ──────
+  
   if (ENABLE_MQ135) {
     d.mq135    = digitalRead(MQ135_PIN);
-    d.mq135_aq = analogRead(MQ135_AO_PIN);   // 0-4095 (ADC1_CH7, GPIO35)
+    d.mq135_aq = analogRead(MQ135_AO_PIN);   
   }
 
-  // ─── MQ-2 (Metan, LPG, Tutun) — DO:GPIO5, AO:GPIO32 ────────
+  
   if (ENABLE_MQ2) {
     d.mq2    = digitalRead(MQ2_PIN);
-    d.mq2_aq = analogRead(MQ2_AO_PIN);       // 0-4095 (ADC1_CH4, GPIO32)
+    d.mq2_aq = analogRead(MQ2_AO_PIN);       
   }
 
-  // ─── MQ-7 (Uglerod oksidi CO) — DO:GPIO19, AO:GPIO34 ───────
+  
   if (ENABLE_MQ7) {
     d.mq7    = digitalRead(MQ7_PIN);
-    d.mq7_aq = analogRead(MQ7_AO_PIN);       // 0-4095 (ADC1_CH6, GPIO34)
+    d.mq7_aq = analogRead(MQ7_AO_PIN);       
   }
 
-  // ─── DHT22 (Harorat va Namlik) ──────────────────────────────
+  
   if (ENABLE_DHT22) {
     float t = dht.readTemperature();
     float h = dht.readHumidity();
@@ -381,9 +299,9 @@ SensorData sensorlar_oqi() {
     }
   }
 
-  // ─── BMP280 (Atmosfera bosimi, hPa) ────────────────────────
+  
   if (ENABLE_BMP280) {
-    // readPressure() Pa qaytaradi → 100 ga bo'lib hPa ga o'tkazamiz
+    
     float bosim_pa = bmp.readPressure();
     if (bosim_pa > 0 && !isnan(bosim_pa)) {
       d.bosim = bosim_pa / 100.0F;
@@ -392,9 +310,9 @@ SensorData sensorlar_oqi() {
     }
   }
 
-  // ─── PMS5003 (PM2.5, PM10) ─────────────────────────────────
-  // pms_loop_oqi() fonda har ~100ms da o'qiydi va g_pm25/g_pm10 ni yangilaydi
-  // Bu yerda faqat global qiymatlarni nusxalaymiz
+  
+  
+  
   if (ENABLE_PMS5003) {
     if (millis() < 30000) {
       Serial.print("   PMS5003 isinmoqda: ");
@@ -410,22 +328,19 @@ SensorData sensorlar_oqi() {
     }
   }
 
-  // ─── SDS011 (PM2.5, PM10) — KELAJAKDA ──────────────────────
-  // if (ENABLE_SDS011) {
-  //   float pm25_val = 0, pm10_val = 0;
-  //   // SDS011 kutubxona funksiyasiga qarab o'zgartiring:
-  //   // if (sds.read(&pm25_val, &pm10_val) == 0) {
-  //   //   d.pm25 = pm25_val;
-  //   //   d.pm10 = pm10_val;
-  //   // }
-  // }
+  
+  
+  
+  
+  
+  
+  
+  
+  
 
   return d;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SERVERGA YUBORISH
-// ═══════════════════════════════════════════════════════════════
 bool serverga_yubor(const SensorData& d) {
   if (WiFi.status() != WL_CONNECTED) {
     wifi_ulangan = false;
@@ -433,17 +348,17 @@ bool serverga_yubor(const SensorData& d) {
     return false;
   }
 
-  // JSON hujjat yaratish (512 bayt — analog maydonlar uchun kengaytirildi)
+  
   StaticJsonDocument<512> doc;
   doc["device_id"] = DEVICE_ID;
 
-  // Raqamli (DO): 0/1 yoki null
+  
   if (ENABLE_MQ135 && d.mq135 >= 0) doc["mq135"] = d.mq135; else doc["mq135"] = nullptr;
   if (ENABLE_MQ2   && d.mq2   >= 0) doc["mq2"]   = d.mq2;   else doc["mq2"]   = nullptr;
   if (ENABLE_MQ7   && d.mq7   >= 0) doc["mq7"]   = d.mq7;   else doc["mq7"]   = nullptr;
 
-  // Analog (AO): 0-4095 yoki null
-  // IZOH: Bu kalibrlanmagan nisbiy qiymat. To'liq ppm uchun maxsus kalibrovka kerak.
+  
+  
   if (ENABLE_MQ135 && d.mq135_aq >= 0) doc["mq135_aq"] = d.mq135_aq; else doc["mq135_aq"] = nullptr;
   if (ENABLE_MQ2   && d.mq2_aq   >= 0) doc["mq2_aq"]   = d.mq2_aq;   else doc["mq2_aq"]   = nullptr;
   if (ENABLE_MQ7   && d.mq7_aq   >= 0) doc["mq7_aq"]   = d.mq7_aq;   else doc["mq7_aq"]   = nullptr;
@@ -458,13 +373,13 @@ bool serverga_yubor(const SensorData& d) {
   else
     doc["namlik"] = nullptr;
 
-  // Bosim (BMP280 ulanganda to'ldiriladi)
+  
   if (!isnan(d.bosim))
     doc["bosim"] = (float)round(d.bosim * 10) / 10.0f;
   else
     doc["bosim"] = nullptr;
 
-  // Zarrachalar (SDS011 ulanganda to'ldiriladi)
+  
   if (!isnan(d.pm25)) doc["pm25"] = (float)round(d.pm25 * 10) / 10.0f; else doc["pm25"] = nullptr;
   if (!isnan(d.pm10)) doc["pm10"] = (float)round(d.pm10 * 10) / 10.0f; else doc["pm10"] = nullptr;
 
@@ -480,7 +395,7 @@ bool serverga_yubor(const SensorData& d) {
   HTTPClient http;
   http.begin(SERVER_URL);
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(10000);  // 10 sekund kutish
+  http.setTimeout(10000);  
 
   int kod = http.POST(json);
 
@@ -515,9 +430,6 @@ bool serverga_yubor(const SensorData& d) {
   return false;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SERIAL MONITOR — BATAFSIL LOG
-// ═══════════════════════════════════════════════════════════════
 void serial_log(const SensorData& d) {
   Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   Serial.print("📊 O'lchov #");
@@ -527,7 +439,7 @@ void serial_log(const SensorData& d) {
   Serial.println("s");
   Serial.println("──────────────────────────────────────────────");
 
-  // Gaz sensorlari (DO + AO)
+  
   if (ENABLE_MQ135) {
     Serial.print("🏭 MQ-135 : ");
     Serial.print(d.mq135 == 1 ? "TOZA " : "GAZ! ");
@@ -549,7 +461,7 @@ void serial_log(const SensorData& d) {
 
   Serial.println("──────────────────────────────────────────────");
 
-  // Harorat va namlik
+  
   if (ENABLE_DHT22) {
     Serial.print("🌡️  Harorat  : ");
     if (!isnan(d.harorat)) { Serial.print(d.harorat, 1); Serial.println(" °C"); }
@@ -560,12 +472,12 @@ void serial_log(const SensorData& d) {
     else                    Serial.println("❌ null (DHT22 xato)");
   }
 
-  // Bosim (BMP280 ulanganda chiqadi)
+  
   if (!isnan(d.bosim)) {
     Serial.print("🌬️  Bosim    : "); Serial.print(d.bosim, 1); Serial.println(" hPa");
   }
 
-  // Zarrachalar (SDS011 ulanganda chiqadi)
+  
   if (!isnan(d.pm25)) {
     Serial.print("🔴 PM2.5    : "); Serial.print(d.pm25, 1); Serial.println(" μg/m³");
     Serial.print("🟠 PM10     : "); Serial.print(d.pm10, 1); Serial.println(" μg/m³");
@@ -581,41 +493,28 @@ void serial_log(const SensorData& d) {
   Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 }
 
-// ═══════════════════════════════════════════════════════════════
-// OLED SAHIFA 1 — ASOSIY HOLAT
-//
-//  ┌──────────────┐
-//  │ HAVO SIFATI  │
-//  │──────────────│
-//  │ T: 24.5°C    │
-//  │ H: 45%       │
-//  │ WiFi: Ulangan│
-//  │──────────────│
-//  │ Holat: YAXSHI│
-//  └──────────────┘
-// ═══════════════════════════════════════════════════════════════
 void oled_sahifa1(const SensorData& d) {
   oled.clearDisplay();
   oled.setTextColor(SSD1306_WHITE);
   oled.setTextSize(1);
 
-  // Sarlavha (markazda)
+  
   oled.setCursor(16, 0);
   oled.println("HAVO SIFATI");
   oled.drawLine(0, 9, 127, 9, SSD1306_WHITE);
 
-  // Harorat
+  
   oled.setCursor(0, 13);
   oled.print("T: ");
   if (!isnan(d.harorat)) {
     oled.print(d.harorat, 1);
-    oled.print((char)247);   // ° belgisi
+    oled.print((char)247);   
     oled.print("C");
   } else {
     oled.print("-- (xato)");
   }
 
-  // Namlik
+  
   oled.setCursor(0, 24);
   oled.print("H: ");
   if (!isnan(d.namlik)) {
@@ -625,49 +524,36 @@ void oled_sahifa1(const SensorData& d) {
     oled.print("-- (xato)");
   }
 
-  // Wi-Fi holati
+  
   oled.setCursor(0, 35);
   oled.print("WiFi: ");
   oled.print(wifi_ulangan ? "Ulangan" : "Yo'q");
 
   oled.drawLine(0, 45, 127, 45, SSD1306_WHITE);
 
-  // Umumiy holat
+  
   oled.setCursor(0, 49);
   oled.print("Holat: ");
   oled.print(holat_aniqlash(d));
 
-  // Sahifa ko'rsatkichi
+  
   oled.setCursor(104, 57);
   oled.print("1/3");
 
   oled.display();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// OLED SAHIFA 2 — GAZ SENSORLARI
-//
-//  ┌──────────────┐
-//  │ GAZ HOLATI   │
-//  │──────────────│
-//  │ MQ135: Toza  │
-//  │ MQ2:   Toza  │
-//  │ MQ7:   Toza  │
-//  │──────────────│
-//  │ Xavf yo'q    │
-//  └──────────────┘
-// ═══════════════════════════════════════════════════════════════
 void oled_sahifa2(const SensorData& d) {
   oled.clearDisplay();
   oled.setTextColor(SSD1306_WHITE);
   oled.setTextSize(1);
 
-  // Sarlavha
+  
   oled.setCursor(22, 0);
   oled.println("GAZ HOLATI");
   oled.drawLine(0, 9, 127, 9, SSD1306_WHITE);
 
-  // MQ-135
+  
   oled.setCursor(0, 13);
   oled.print("MQ135: ");
   if (ENABLE_MQ135 && d.mq135 >= 0)
@@ -675,7 +561,7 @@ void oled_sahifa2(const SensorData& d) {
   else
     oled.print("--");
 
-  // MQ-2
+  
   oled.setCursor(0, 24);
   oled.print("MQ2:   ");
   if (ENABLE_MQ2 && d.mq2 >= 0)
@@ -683,7 +569,7 @@ void oled_sahifa2(const SensorData& d) {
   else
     oled.print("--");
 
-  // MQ-7
+  
   oled.setCursor(0, 35);
   oled.print("MQ7:   ");
   if (ENABLE_MQ7 && d.mq7 >= 0)
@@ -693,44 +579,31 @@ void oled_sahifa2(const SensorData& d) {
 
   oled.drawLine(0, 45, 127, 45, SSD1306_WHITE);
 
-  // Xulosa
+  
   oled.setCursor(0, 49);
   bool xavf_bor = (ENABLE_MQ135 && d.mq135 == 0) ||
                   (ENABLE_MQ2   && d.mq2   == 0) ||
                   (ENABLE_MQ7   && d.mq7   == 0);
   oled.print(xavf_bor ? "!! Xavf bor !!" : "Xavf yo'q");
 
-  // Sahifa ko'rsatkichi
+  
   oled.setCursor(104, 57);
   oled.print("2/3");
 
   oled.display();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// OLED SAHIFA 3 — BOSIM + SERVER HOLATI
-//
-//  ┌──────────────┐
-//  │ BOSIM/SERVER │
-//  │──────────────│
-//  │ Bosim: 1013.2│
-//  │ Yuborildi: 5 │
-//  │ Oxirgi: 14:30│
-//  │──────────────│
-//  │ Ulangan      │
-//  └──────────────┘
-// ═══════════════════════════════════════════════════════════════
 void oled_sahifa3(const SensorData& d) {
   oled.clearDisplay();
   oled.setTextColor(SSD1306_WHITE);
   oled.setTextSize(1);
 
-  // Sarlavha
+  
   oled.setCursor(22, 0);
   oled.println("BOSIM/SERVER");
   oled.drawLine(0, 9, 127, 9, SSD1306_WHITE);
 
-  // Atmosfera bosimi (BMP280 dan)
+  
   oled.setCursor(0, 13);
   oled.print("Bosim: ");
   if (!isnan(d.bosim)) {
@@ -740,19 +613,19 @@ void oled_sahifa3(const SensorData& d) {
     oled.print("-- (ulanmagan)");
   }
 
-  // Yuborildi soni
+  
   oled.setCursor(0, 24);
   oled.print("Yuborildi: ");
   oled.print(yuborish_soni);
 
-  // Oxirgi yuborish vaqti
+  
   oled.setCursor(0, 35);
   oled.print("Oxirgi: ");
   oled.print(oxirgi_vaqt);
 
   oled.drawLine(0, 45, 127, 45, SSD1306_WHITE);
 
-  // Ulanish holati
+  
   oled.setCursor(0, 49);
   if (wifi_ulangan && server_ulangan)
     oled.print("Ulangan");
@@ -761,16 +634,13 @@ void oled_sahifa3(const SensorData& d) {
   else
     oled.print("WiFi yo'q");
 
-  // Sahifa ko'rsatkichi
+  
   oled.setCursor(104, 57);
   oled.print("3/3");
 
   oled.display();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// OLED SAHIFA 4 — PM2.5 / PM10 (PMS5003)
-// ═══════════════════════════════════════════════════════════════
 void oled_sahifa4(const SensorData& d) {
   oled.clearDisplay();
   oled.setTextColor(SSD1306_WHITE);
@@ -813,9 +683,6 @@ void oled_sahifa4(const SensorData& d) {
   oled.display();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// OLED YANGILASH — har 5 sekundda sahifa almashinadi
-// ═══════════════════════════════════════════════════════════════
 void oled_yangilash(const SensorData& d) {
   if (!ENABLE_OLED) return;
 
@@ -823,7 +690,7 @@ void oled_yangilash(const SensorData& d) {
 
   if (hozir - oxirgi_sahifa_alm >= SAHIFA_INTERVAL) {
     oxirgi_sahifa_alm = hozir;
-    joriy_sahifa = (joriy_sahifa + 1) % 4;  // 4 sahifa
+    joriy_sahifa = (joriy_sahifa + 1) % 4;  
   }
 
   if (hozir - oxirgi_oled_draw >= 1000) {
@@ -837,14 +704,11 @@ void oled_yangilash(const SensorData& d) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SETUP — bir marta ishga tushadi
-// ═══════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
   delay(500);
 
-  // Kirish banneri
+  
   Serial.println("\n╔════════════════════════════════════════════════╗");
   Serial.println("║   Havo Sifati Monitoringi — ESP32 v3.0        ║");
   Serial.println("║   Diplom loyihasi, 2025-2026                   ║");
@@ -854,9 +718,9 @@ void setup() {
   Serial.println("║   BMP280 (0x76)  | PMS5003 UART2 RX=16,TX=17  ║");
   Serial.println("╚════════════════════════════════════════════════╝\n");
 
-  // ─── OLED ni ishga tushirish ───────────────────────────────
+  
   if (ENABLE_OLED) {
-    Wire.begin(21, 22);   // SDA=21, SCL=22
+    Wire.begin(21, 22);   
     if (!oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
       Serial.println("❌ OLED topilmadi! I2C manzilni tekshiring (0x3C yoki 0x3D)");
     } else {
@@ -875,10 +739,10 @@ void setup() {
     }
   }
 
-  // ─── Sensor pinlarini sozlash ──────────────────────────────
+  
   Serial.println("⚙️  Sensorlar sozlanmoqda...");
 
-  // INPUT_PULLUP: suzuvchi pin tasodifiy LOW o'qishini oldini oladi
+  
   if (ENABLE_MQ135) {
     pinMode(MQ135_PIN, INPUT_PULLUP);
     Serial.println("   ✅ MQ-135 — GPIO 4  (CO₂/NH₃/Benzol, INPUT_PULLUP)");
@@ -896,60 +760,57 @@ void setup() {
     Serial.println("   ✅ DHT22  — GPIO 23 (Harorat/Namlik)");
   }
 
-  // PMS5003 UART2 ishga tushirish (9600 baud, RX=16, TX=17)
+  
   if (ENABLE_PMS5003) {
     pmsSerial.begin(9600, SERIAL_8N1, PMS5003_RX, PMS5003_TX);
     Serial.println("   PMS5003 -- UART2 RX=16, TX=17 (30s isinish kerak)");
   }
 
-  // BMP280 bosim sensori ishga tushirish
+  
   if (ENABLE_BMP280) {
     if (bmp.begin(BMP280_ADDRESS)) {
       Serial.println("   ✅ BMP280 — I2C 0x76 (Bosim sensori, hPa)");
     } else {
-      // Sensor topilmasa ham tizim to'xtamaydi — bosim null yuboriladi
+      
       Serial.println("   ⚠️  BMP280 topilmadi! SDA=21, SCL=22, manzil 0x76 tekshiring");
       Serial.println("       Tizim davom etadi — bosim null bo'ladi");
     }
   }
-  // if (ENABLE_SDS011) {
-  //   sdsSerial.begin(9600);
-  //   Serial.println("   ✅ SDS011 — UART RX=16, TX=17 (PM2.5/PM10)");
-  // }
+  
+  
+  
+  
 
-  // ─── Wi-Fi (oflayn rejim qo'llab-quvvatlanadi) ────────────
+  
   wifi_urinib_kor();
 
-  // ─── Tayyor xabari ────────────────────────────────────────
+  
   Serial.println("\n📋 Konfiguratsiya:");
   Serial.print("   🌐 Server     : "); Serial.println(SERVER_URL);
   Serial.print("   📟 Qurilma ID : "); Serial.println(DEVICE_ID);
   Serial.print("   ⏱️  Interval   : "); Serial.print(YUBORISH_INTERVALI / 1000); Serial.println(" sekund");
   Serial.println("\n✨ Qurilma tayyor! Sensorlar o'qilmoqda...\n");
 
-  // Birinchi o'lchovni darhol boshlash
+  
   oxirgi_yuborish   = millis() - YUBORISH_INTERVALI;
   oxirgi_sahifa_alm = millis();
   oxirgi_oled_draw  = millis();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// LOOP — doimo takrorlanadi
-// ═══════════════════════════════════════════════════════════════
 void loop() {
   unsigned long hozir = millis();
 
-  // ─── Belgilangan vaqt o'tganda: o'qi va yubor ─────────────
+  
   if (hozir - oxirgi_yuborish >= YUBORISH_INTERVALI) {
     oxirgi_yuborish = hozir;
 
-    // Barcha yoqilgan sensorlardan o'qish
+    
     joriy_data = sensorlar_oqi();
 
-    // Serial Monitor ga batafsil log
+    
     serial_log(joriy_data);
 
-    // Wi-Fi bor bo'lsa — serverga yuborish
+    
     if (WiFi.status() == WL_CONNECTED) {
       bool natija = serverga_yubor(joriy_data);
       if (natija) {
@@ -964,16 +825,16 @@ void loop() {
     }
   }
 
-  // ─── Wi-Fi uzilishini kuzatish va qayta ulanish ────────────
+  
   if (WiFi.status() != WL_CONNECTED) {
     if (wifi_ulangan) {
-      // Yangi uzilish — hozir qayta urinib ko'ramiz
+      
       wifi_ulangan = false;
       server_ulangan = false;
       Serial.println("⚠️  Wi-Fi uzildi!");
-      oxirgi_qayta_ulan = hozir - QAYTA_ULANISH_MS;  // darhol urinish
+      oxirgi_qayta_ulan = hozir - QAYTA_ULANISH_MS;  
     }
-    // Belgilangan interval o'tganda qayta ulanishga harakat
+    
     if (hozir - oxirgi_qayta_ulan >= QAYTA_ULANISH_MS) {
       oxirgi_qayta_ulan = hozir;
       wifi_urinib_kor();
@@ -982,13 +843,13 @@ void loop() {
     wifi_ulangan = true;
   }
 
-  // ─── PMS5003 fon o'qish (har ~100ms — buffer to'lib toshmasin) ──
+  
   pms_loop_oqi();
 
-  // ─── OLED ekranini yangilash (har 1s, sahifa har 5s) ───────
+  
   if (ENABLE_OLED) {
     oled_yangilash(joriy_data);
   }
 
-  delay(100);    // ~100ms sikliy kutish
+  delay(100);    
 }

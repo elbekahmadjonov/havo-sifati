@@ -22,7 +22,6 @@ except ImportError:
 except Exception as exc:
     log.warning("⚠️  ML modul xatosi (%s) — statistik rejim faol.", exc)
 
-
 class HavoSifatBashorati:
 
     def __init__(self):

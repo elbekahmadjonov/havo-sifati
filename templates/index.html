@@ -19,7 +19,6 @@
 </head>
 <body>
 
-<!-- ─── Navigatsiya ─── -->
 <nav class="navbar">
   <div class="nav-brand">🌬️ <span>Havo Sifati</span> Monitoringi</div>
   <div style="display:flex;align-items:center;gap:0.5rem">
@@ -34,7 +33,6 @@
 
 <div class="layout-wrapper">
 
-<!-- ─── Sidebar ─── -->
 <aside class="sidebar">
   <div class="sidebar-brand">🌬️ Havo Monitor</div>
 
@@ -67,24 +65,23 @@
   </div>
 </aside>
 
-<!-- ─── Asosiy kontent ─── -->
 <main class="main-content">
 
-  <!-- Xato paneli (server bilan aloqa yo'q) -->
+  
   <div id="xato-bar" class="alert-bar" style="display:none">
     ⚠️ Server bilan bog'liq muammo. Qayta ulanilmoqda...
   </div>
 
-  <!-- Qurilma offline banneri (ESP32 bilan aloqa yo'q) -->
+  
   <div id="offline-banner" class="offline-banner puls" style="display:none">
     <span>⚠️ Qurilma bilan aloqa yo'q!</span>
     <span style="font-weight:400">Oxirgi ko'rinish: <strong id="offline-vaqt">—</strong></span>
   </div>
 
-  <!-- AQI + LSTM + Sog'liq maslahat — 3 ustun -->
+  
   <div class="grid-3">
 
-    <!-- AQI karta — SVG gauge -->
+    
     <div class="card aqi-card glass" id="aqi-karta">
       <div class="aqi-label">HAVO SIFATI INDEKSI (AQI)</div>
 
@@ -106,7 +103,7 @@
            color:var(--kulrang);text-align:center;letter-spacing:0.02em"></div>
     </div>
 
-    <!-- LSTM Bashorat kartasi -->
+    
     <div class="card lstm-karta" id="lstm-karta">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9rem">
         <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#60a5fa">
@@ -140,7 +137,7 @@
       </div>
     </div>
 
-    <!-- Sog'liq maslahat -->
+    
     <div class="card">
       <div class="card-header">💚 Sog'liq Tavsiyasi</div>
       <div class="tavsiya-matn" id="tavsiya-matn" style="color:var(--kulrang)">
@@ -151,10 +148,10 @@
 
   </div>
 
-  <!-- Sensor kartalar -->
+  
   <div class="sensor-grid" id="sensor-grid"></div>
 
-  <!-- Real vaqt AQI grafigi -->
+  
   <div class="card" style="margin-bottom:1.5rem">
     <div class="card-header">📈 So'nggi 1 soatlik AQI grafigi</div>
     <div style="position:relative;height:220px">
@@ -162,7 +159,7 @@
     </div>
   </div>
 
-  <!-- Tarix + LSTM Bashorat grafigi -->
+  
   <div class="card" style="margin-bottom:1.5rem">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
       <div class="card-header" style="margin-bottom:0">📊 Tarix + LSTM Bashorat grafigi</div>
@@ -190,14 +187,14 @@
     </div>
   </div>
 
-  <!-- Status qatori -->
+  
   <div class="status-bar">
     <span id="status-vaqt">🕐 Yuklanmoqda...</span>
     <span id="status-online" class="online-badge kulrang">● Kutilmoqda</span>
   </div>
 
-</main><!-- main-content -->
-</div><!-- layout-wrapper -->
+</main>
+</div>
 
 <script src="/static/script.js"></script>
 <script>
