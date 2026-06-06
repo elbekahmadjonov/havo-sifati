@@ -139,11 +139,11 @@
 
     
     <div class="card">
-      <div class="card-header">💚 Sog'liq Tavsiyasi</div>
-      <div class="tavsiya-matn" id="tavsiya-matn" style="color:var(--kulrang)">
+      <div class="card-header">💚 Hozirgi Holat</div>
+      <div class="tavsiya-matn" id="tavsiya-matn" style="color:var(--kulrang);font-size:0.85rem;line-height:1.65">
         Ma'lumot yuklanmoqda...
       </div>
-      <div id="sensorlar-holat" style="margin-top:0.75rem;font-size:0.84rem;line-height:1.7"></div>
+      <div id="sensorlar-holat" style="margin-top:0.65rem;font-size:0.81rem;line-height:1.7"></div>
     </div>
 
   </div>
@@ -151,7 +151,69 @@
   
   <div class="sensor-grid" id="sensor-grid"></div>
 
-  
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">🧪 MQ Sensor — Gaz Holati</div>
+    <div class="jadval-konteyner">
+      <table>
+        <thead>
+          <tr>
+            <th>Sensor</th>
+            <th>Aniqlaydigan gazlar</th>
+            <th>Ulangan</th>
+            <th>Holat</th>
+            <th>DO signal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>🏭 MQ-135</strong></td>
+            <td style="font-size:0.82rem">CO₂ · NH₃ · Benzol · Spirt · Alkogol</td>
+            <td id="mq135-ul">—</td>
+            <td id="mq135-hol">—</td>
+            <td id="mq135-xa">—</td>
+          </tr>
+          <tr>
+            <td><strong>🔥 MQ-2</strong></td>
+            <td style="font-size:0.82rem">Metan · LPG · Tutun · Propan · Vodorod</td>
+            <td id="mq2-ul">—</td>
+            <td id="mq2-hol">—</td>
+            <td id="mq2-xa">—</td>
+          </tr>
+          <tr>
+            <td><strong>💨 MQ-7</strong></td>
+            <td style="font-size:0.82rem">CO — Uglerod oksidi (eng xavfli!)</td>
+            <td id="mq7-ul">—</td>
+            <td id="mq7-hol">—</td>
+            <td id="mq7-xa">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--kulrang)">
+      DO = 1 → gaz chegaradan past (TOZA) &nbsp;|&nbsp; DO = 0 → gaz aniqlandi (GAZ!)
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-header">📊 AQI Darajalari va Sog'liq Tavsiyalari</div>
+    <div class="jadval-konteyner">
+      <table id="aqi-tavsiya-jadval">
+        <thead>
+          <tr>
+            <th>AQI</th>
+            <th>Daraja</th>
+            <th>Sog'liq ta'siri</th>
+            <th>Tavsiya</th>
+          </tr>
+        </thead>
+        <tbody id="aqi-tavsiya-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--kulrang)">
+      ★ Hozirgi AQI darajasi ajratib ko'rsatilgan &nbsp;|&nbsp; EPA (AQSh) standartlari asosida
+    </div>
+  </div>
+
   <div class="card" style="margin-bottom:1.5rem">
     <div class="card-header">📈 So'nggi 1 soatlik AQI grafigi</div>
     <div style="position:relative;height:220px">
@@ -259,28 +321,17 @@ function sidebarYangilaش(oxirgi, online) {
   }
 }
 
-// ─── Sensor konfiguratsiyasi ───
 const SENSORLAR = [
-  { id:'mq135',   nom:'MQ-135',  ikon:'🏭', tavsif:'CO₂, NH₃, Benzol',         tur:'binary', aqField:'mq135_aq' },
-  { id:'mq2',     nom:'MQ-2',    ikon:'🔥', tavsif:'Tutun, Metan, LPG',         tur:'binary', aqField:'mq2_aq'   },
-  { id:'mq7',     nom:'MQ-7',    ikon:'💨', tavsif:'Uglerod oksidi (CO)',        tur:'binary', aqField:'mq7_aq'   },
-  { id:'harorat', nom:'Harorat', ikon:'🌡️', tavsif:'Muhit harorati',             tur:'analog', birlik:'°C'        },
-  { id:'namlik',  nom:'Namlik',  ikon:'💧', tavsif:'Havo namligi',               tur:'analog', birlik:'%'         },
-  { id:'bosim',   nom:'Bosim',   ikon:'🌬️', tavsif:'Atmosfera bosimi (BMP280)',  tur:'analog', birlik:'hPa'       },
-  { id:'pm25',    nom:'PM2.5',   ikon:'🔴', tavsif:'Mayda zarrachalar (EPA)',    tur:'analog', birlik:'μg/m³'     },
-  { id:'pm10',    nom:'PM10',    ikon:'🟠', tavsif:'Yirik zarrachalar',          tur:'analog', birlik:'μg/m³'     },
+  { id:'mq135',   nom:'MQ-135',  ikon:'🏭', tavsif:'CO₂, NH₃, Benzol',          tur:'binary' },
+  { id:'mq2',     nom:'MQ-2',    ikon:'🔥', tavsif:'Tutun, Metan, LPG',          tur:'binary' },
+  { id:'mq7',     nom:'MQ-7',    ikon:'💨', tavsif:'Uglerod oksidi (CO)',         tur:'binary' },
+  { id:'harorat', nom:'Harorat', ikon:'🌡️', tavsif:'Muhit harorati',              tur:'analog', birlik:'°C'    },
+  { id:'namlik',  nom:'Namlik',  ikon:'💧', tavsif:'Havo namligi',                tur:'analog', birlik:'%'     },
+  { id:'bosim',   nom:'Bosim',   ikon:'🌬️', tavsif:'Atmosfera bosimi (BMP280)',   tur:'analog', birlik:'hPa'   },
+  { id:'pm25',    nom:'PM2.5',   ikon:'🔴', tavsif:'Mayda zarrachalar (EPA)',     tur:'analog', birlik:'μg/m³' },
+  { id:'pm10',    nom:'PM10',    ikon:'🟠', tavsif:'Yirik zarrachalar',           tur:'analog', birlik:'μg/m³' },
 ];
 
-// AQI → progress bar rangi
-function aqBarRangi(foiz) {
-  if (foiz < 20) return '#10b981';   // yashil
-  if (foiz < 39) return '#f59e0b';   // sariq
-  if (foiz < 59) return '#f97316';   // to'q sariq
-  if (foiz < 78) return '#ef4444';   // qizil
-  return '#8b5cf6';                  // binafsha
-}
-
-// ─── Sensor gridni HTML dan yaratish ───
 function sensorGridYarat() {
   document.getElementById('sensor-grid').innerHTML = SENSORLAR.map(s => `
     <div class="sensor-karta ulanmagan" id="sk-${s.id}">
@@ -292,17 +343,12 @@ function sensorGridYarat() {
         <div class="sensor-holat-badge notr" id="badge-${s.id}">━</div>
       </div>
       <div class="sensor-qiymat" id="qiymat-${s.id}" style="color:var(--kulrang)">Ulanmagan</div>
-      ${s.aqField ? `
-      <div style="margin:0.35rem 0 0.1rem;height:5px;background:var(--karta2);border-radius:3px;overflow:hidden">
-        <div id="aqbar-${s.id}" style="height:100%;width:0%;border-radius:3px;transition:width 0.8s ease,background 0.4s"></div>
-      </div>` : ''}
-      <div class="sensor-status" id="st-${s.id}">Sensor ulanmagan</div>
+      <div class="sensor-status"  id="st-${s.id}">Sensor ulanmagan</div>
     </div>
   `).join('');
 }
 
-// ─── Bir sensor kartasini yangilash ───
-function sensorKartaYangilaш(s, qiymat, aqQiymat) {
+function sensorKartaYangilaш(s, qiymat) {
   const karta   = document.getElementById(`sk-${s.id}`);
   const qEl     = document.getElementById(`qiymat-${s.id}`);
   const badgeEl = document.getElementById(`badge-${s.id}`);
@@ -318,10 +364,6 @@ function sensorKartaYangilaш(s, qiymat, aqQiymat) {
     badgeEl.textContent = '━';
     badgeEl.className   = 'sensor-holat-badge notr';
     stEl.textContent    = 'Sensor ulanmagan';
-    if (s.aqField) {
-      const bar = document.getElementById(`aqbar-${s.id}`);
-      if (bar) { bar.style.width = '0%'; bar.style.background = '#475569'; }
-    }
   } else if (s.tur === 'binary') {
     if (qiymat === 1) {
       karta.classList.add('toza');
@@ -329,24 +371,14 @@ function sensorKartaYangilaш(s, qiymat, aqQiymat) {
       qEl.style.color     = 'var(--yashil)';
       badgeEl.textContent = '✔';
       badgeEl.className   = 'sensor-holat-badge yashil';
+      stEl.textContent    = 'Xavfsiz holat';
     } else {
       karta.classList.add('xavf');
       qEl.textContent     = 'GAZ!';
       qEl.style.color     = 'var(--qizil)';
       badgeEl.textContent = '⚠';
       badgeEl.className   = 'sensor-holat-badge qizil puls';
-    }
-    // Analog progress bar + AQI hissasi
-    if (s.aqField && aqQiymat != null && aqQiymat >= 0) {
-      const foiz    = Math.round(aqQiymat / 4095 * 100);
-      const aqiHiss = mq_analog_aqi_js(aqQiymat);
-      const bar     = document.getElementById(`aqbar-${s.id}`);
-      if (bar) { bar.style.width = foiz + '%'; bar.style.background = aqBarRangi(foiz); }
-      stEl.textContent = `ADC: ${aqQiymat}  •  AQI~${aqiHiss}  •  ${foiz}%`;
-      stEl.style.color = 'var(--kulrang)';
-    } else {
-      stEl.textContent = qiymat === 1 ? 'Xavfsiz holat' : 'Gaz aniqlandi!';
-      stEl.style.color = '';
+      stEl.textContent    = 'Gaz aniqlandi!';
     }
   } else {
     const son = parseFloat(qiymat).toFixed(1);
@@ -356,19 +388,88 @@ function sensorKartaYangilaш(s, qiymat, aqQiymat) {
     badgeEl.className   = 'sensor-holat-badge yashil';
     karta.classList.add('toza');
     stEl.textContent    = 'Ishlaydi';
-    stEl.style.color    = '';
   }
 }
 
-// MQ analog → AQI (server bilan bir xil mantiq, JS da)
-function mq_analog_aqi_js(aq) {
-  aq = Math.max(0, Math.min(4095, aq));
-  const bp = [[0,799,0,50],[800,1599,51,100],[1600,2399,101,150],[2400,3199,151,200],[3200,4095,201,300]];
-  for (const [cMin,cMax,iMin,iMax] of bp) {
-    if (aq >= cMin && aq <= cMax)
-      return Math.round((iMax-iMin)/(cMax-cMin)*(aq-cMin)+iMin);
+function mqJadvalYangilaш(oxirgi) {
+  const sensors = [
+    { id:'mq135', nom:'MQ-135' },
+    { id:'mq2',   nom:'MQ-2'   },
+    { id:'mq7',   nom:'MQ-7'   },
+  ];
+  sensors.forEach(s => {
+    const val   = oxirgi?.[s.id];
+    const ulEl  = document.getElementById(`${s.id}-ul`);
+    const holEl = document.getElementById(`${s.id}-hol`);
+    const xaEl  = document.getElementById(`${s.id}-xa`);
+    if (!ulEl) return;
+    if (val === null || val === undefined) {
+      ulEl.innerHTML  = '<span class="chip kulrang">━ Ulanmagan</span>';
+      holEl.textContent = '—';
+      xaEl.textContent  = '—';
+    } else if (val === 1) {
+      ulEl.innerHTML  = '<span class="chip yashil">✔ Ulangan</span>';
+      holEl.innerHTML = '<span style="color:var(--yashil);font-weight:700">TOZA</span>';
+      xaEl.innerHTML  = '<span class="chip yashil">DO = 1</span>';
+    } else {
+      ulEl.innerHTML  = '<span class="chip yashil">✔ Ulangan</span>';
+      holEl.innerHTML = '<span style="color:var(--qizil);font-weight:700">⚠ GAZ!</span>';
+      xaEl.innerHTML  = '<span class="chip qizil puls">DO = 0</span>';
+    }
+  });
+}
+
+const AQI_JADVAL = [
+  { id:'aqi-r0', min:0,   max:50,  rang:'#00E400', emoji:'🟢', daraja:'Yaxshi',
+    sogliq:'Havo toza — hech qanday xavf yo\'q',
+    tavsiya:'Tashqarida erkin faoliyat olib boring' },
+  { id:'aqi-r1', min:51,  max:100, rang:'#f59e0b', emoji:'🟡', daraja:'O\'rtacha',
+    sogliq:'Sezgir odamlar uchun yengil ta\'sir mumkin',
+    tavsiya:'Nafas kasalligi bo\'lganlar uzoq muddatli tashqi mashqni cheklaydi' },
+  { id:'aqi-r2', min:101, max:150, rang:'#f97316', emoji:'🟠', daraja:'Sezgir guruh uchun zararli',
+    sogliq:'Bolalar, keksalar, astma va yurak kasallari ta\'sirlanadi',
+    tavsiya:'Sezgir guruh tashqi faoliyatni cheklaydi; qolganlar ehtiyot bo\'ladi' },
+  { id:'aqi-r3', min:151, max:200, rang:'#ef4444', emoji:'🔴', daraja:'Zararli',
+    sogliq:'Barcha aholi sog\'liqqa salbiy ta\'sir sezishi mumkin',
+    tavsiya:'Hamma tashqi faoliyatni kamaytirsin; sezgirlar ichkarida qolsin' },
+  { id:'aqi-r4', min:201, max:300, rang:'#8b5cf6', emoji:'🟣', daraja:'Juda zararli',
+    sogliq:'Jiddiy sog\'liq xavfi — hamma ta\'sirlanadi',
+    tavsiya:'Tashqarida bo\'lmang; niqob majburiy; deraza yoping' },
+  { id:'aqi-r5', min:301, max:500, rang:'#7e0023', emoji:'⚫', daraja:'Xavfli',
+    sogliq:'Favqulodda holat — butun aholi uchun xavfli',
+    tavsiya:'Mutlaqo tashqarida bo\'lmang; zudlik bilan tibbiy yordam oling' },
+];
+
+function aqiTavsiyaJadvalYarat() {
+  const tbody = document.getElementById('aqi-tavsiya-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = AQI_JADVAL.map(r => `
+    <tr id="${r.id}" style="transition:background 0.4s">
+      <td style="font-weight:700;white-space:nowrap">
+        <span style="color:${r.rang}">${r.emoji}</span>
+        <strong>${r.min}–${r.max === 500 ? '500+' : r.max}</strong>
+      </td>
+      <td style="color:${r.rang};font-weight:700;white-space:nowrap">${r.daraja}</td>
+      <td style="font-size:0.82rem">${r.sogliq}</td>
+      <td style="font-size:0.82rem">${r.tavsiya}</td>
+    </tr>
+  `).join('');
+}
+
+function aqiSatirYorit(aqi) {
+  AQI_JADVAL.forEach(r => {
+    const tr = document.getElementById(r.id);
+    if (!tr) return;
+    tr.style.background = '';
+    tr.style.fontWeight = '';
+  });
+  if (aqi == null) return;
+  const r = AQI_JADVAL.find(r => aqi >= r.min && aqi <= r.max) || AQI_JADVAL[AQI_JADVAL.length - 1];
+  const tr = document.getElementById(r.id);
+  if (tr) {
+    tr.style.background = r.rang + '18';
+    tr.style.outline    = `1px solid ${r.rang}44`;
   }
-  return 300;
 }
 
 // ─── Qurilma offline bo'lganda sensor kartasini kulranglashtirish ───
@@ -439,6 +540,7 @@ async function aqiYanila() {
     document.getElementById('aqi-daraja').style.color         = rang;
     document.getElementById('aqi-indicator').style.background = rang;
     aqiGaugeYangilaش(d.hozir, rang);
+    aqiSatirYorit(d.hozir);
     document.getElementById('tavsiya-matn').textContent       = d.tavsiya || '';
     document.getElementById('tavsiya-matn').style.color       = 'var(--matn)';
 
@@ -649,11 +751,8 @@ async function hammaNiBoshqaYangilaш() {
       SENSORLAR.forEach(sensorKartaOffline);
       sidebarYangilaش(null, false);
     } else {
-      SENSORLAR.forEach(s => {
-        const q  = data.oxirgi?.[s.id];
-        const aq = s.aqField ? data.oxirgi?.[s.aqField] : undefined;
-        sensorKartaYangilaш(s, q, aq);
-      });
+      SENSORLAR.forEach(s => sensorKartaYangilaш(s, data.oxirgi?.[s.id]));
+      mqJadvalYangilaш(data.oxirgi);
       sidebarYangilaش(data.oxirgi, true);
     }
     grafikYangilaш(data.grafik);
@@ -789,6 +888,7 @@ async function bashoratYanila() {
 
 // ─── Ishga tushirish ───
 sensorGridYarat();
+aqiTavsiyaJadvalYarat();
 aqiYanila();                                // AQI — darhol
 hammaNiBoshqaYangilaш();                    // Sensor + grafik — darhol
 bashoratYanila();                           // LSTM bashorat — darhol

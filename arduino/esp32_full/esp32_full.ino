@@ -32,14 +32,10 @@ const bool ENABLE_OLED   = true;
 const bool ENABLE_BMP280  = true;   
 const bool ENABLE_PMS5003 = true;   
 
-const int MQ135_PIN    = 5;   
-const int MQ2_PIN      = 4;   
-const int MQ7_PIN      = 19;  
-
-const int MQ135_AO_PIN = 35;  
-const int MQ2_AO_PIN   = 32;  
-const int MQ7_AO_PIN   = 34;  
-const int DHT22_PIN    = 23;  
+const int MQ135_PIN = 4;
+const int MQ2_PIN   = 5;
+const int MQ7_PIN   = 19;
+const int DHT22_PIN = 23;
 
 const int PMS5003_RX   = 16;  
 const int PMS5003_TX   = 17;  
@@ -71,17 +67,14 @@ bool wifi_ulangan    = false;
 char oxirgi_vaqt[9]  = "--:--"; 
 
 struct SensorData {
-  int   mq135     = -1;     
-  int   mq2       = -1;
-  int   mq7       = -1;
-  int   mq135_aq  = -1;     
-  int   mq2_aq    = -1;
-  int   mq7_aq    = -1;
-  float harorat   = NAN;    
-  float namlik    = NAN;
-  float bosim     = NAN;    
-  float pm25      = NAN;    
-  float pm10      = NAN;    
+  int   mq135   = -1;
+  int   mq2     = -1;
+  int   mq7     = -1;
+  float harorat = NAN;
+  float namlik  = NAN;
+  float bosim   = NAN;
+  float pm25    = NAN;
+  float pm10    = NAN;
 };
 
 SensorData joriy_data;      
@@ -265,22 +258,9 @@ SensorData sensorlar_oqi() {
   SensorData d;
 
   
-  if (ENABLE_MQ135) {
-    d.mq135    = digitalRead(MQ135_PIN);
-    d.mq135_aq = analogRead(MQ135_AO_PIN);   
-  }
-
-  
-  if (ENABLE_MQ2) {
-    d.mq2    = digitalRead(MQ2_PIN);
-    d.mq2_aq = analogRead(MQ2_AO_PIN);       
-  }
-
-  
-  if (ENABLE_MQ7) {
-    d.mq7    = digitalRead(MQ7_PIN);
-    d.mq7_aq = analogRead(MQ7_AO_PIN);       
-  }
+  if (ENABLE_MQ135) { d.mq135 = digitalRead(MQ135_PIN); }
+  if (ENABLE_MQ2)   { d.mq2   = digitalRead(MQ2_PIN);   }
+  if (ENABLE_MQ7)   { d.mq7   = digitalRead(MQ7_PIN);   }
 
   
   if (ENABLE_DHT22) {
@@ -349,19 +329,12 @@ bool serverga_yubor(const SensorData& d) {
   }
 
   
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<384> doc;
   doc["device_id"] = DEVICE_ID;
 
-  
   if (ENABLE_MQ135 && d.mq135 >= 0) doc["mq135"] = d.mq135; else doc["mq135"] = nullptr;
   if (ENABLE_MQ2   && d.mq2   >= 0) doc["mq2"]   = d.mq2;   else doc["mq2"]   = nullptr;
   if (ENABLE_MQ7   && d.mq7   >= 0) doc["mq7"]   = d.mq7;   else doc["mq7"]   = nullptr;
-
-  
-  
-  if (ENABLE_MQ135 && d.mq135_aq >= 0) doc["mq135_aq"] = d.mq135_aq; else doc["mq135_aq"] = nullptr;
-  if (ENABLE_MQ2   && d.mq2_aq   >= 0) doc["mq2_aq"]   = d.mq2_aq;   else doc["mq2_aq"]   = nullptr;
-  if (ENABLE_MQ7   && d.mq7_aq   >= 0) doc["mq7_aq"]   = d.mq7_aq;   else doc["mq7_aq"]   = nullptr;
 
   if (ENABLE_DHT22 && !isnan(d.harorat))
     doc["harorat"] = (float)round(d.harorat * 10) / 10.0f;
@@ -442,21 +415,15 @@ void serial_log(const SensorData& d) {
   
   if (ENABLE_MQ135) {
     Serial.print("🏭 MQ-135 : ");
-    Serial.print(d.mq135 == 1 ? "TOZA " : "GAZ! ");
-    Serial.print(" | AO: "); Serial.print(d.mq135_aq);
-    Serial.print("/4095  ("); Serial.print(d.mq135_aq * 100 / 4095); Serial.println("%)");
+    Serial.println(d.mq135 == 1 ? "TOZA" : "GAZ!");
   }
   if (ENABLE_MQ2) {
     Serial.print("🔥 MQ-2   : ");
-    Serial.print(d.mq2 == 1 ? "TOZA " : "GAZ! ");
-    Serial.print(" | AO: "); Serial.print(d.mq2_aq);
-    Serial.print("/4095  ("); Serial.print(d.mq2_aq * 100 / 4095); Serial.println("%)");
+    Serial.println(d.mq2 == 1 ? "TOZA" : "GAZ!");
   }
   if (ENABLE_MQ7) {
     Serial.print("💨 MQ-7   : ");
-    Serial.print(d.mq7 == 1 ? "TOZA " : "GAZ! ");
-    Serial.print(" | AO: "); Serial.print(d.mq7_aq);
-    Serial.print("/4095  ("); Serial.print(d.mq7_aq * 100 / 4095); Serial.println("%)");
+    Serial.println(d.mq7 == 1 ? "TOZA" : "GAZ!");
   }
 
   Serial.println("──────────────────────────────────────────────");

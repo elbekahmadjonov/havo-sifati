@@ -73,18 +73,15 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class SensorMalumot(BaseModel):
-    device_id:  str            = "esp32_001"
-    mq135:      Optional[int]  = None
-    mq2:        Optional[int]  = None
-    mq7:        Optional[int]  = None
-    mq135_aq:   Optional[int]  = None
-    mq2_aq:     Optional[int]  = None
-    mq7_aq:     Optional[int]  = None
-    harorat:    Optional[float] = None
-    namlik:     Optional[float] = None
-    bosim:      Optional[float] = None
-    pm25:       Optional[float] = None
-    pm10:       Optional[float] = None
+    device_id: str            = "esp32_001"
+    mq135:     Optional[int]  = None
+    mq2:       Optional[int]  = None
+    mq7:       Optional[int]  = None
+    harorat:   Optional[float] = None
+    namlik:    Optional[float] = None
+    bosim:     Optional[float] = None
+    pm25:      Optional[float] = None
+    pm10:      Optional[float] = None
 
 @app.post("/api/sensor", summary="ESP32 dan sensor ma'lumotlari qabul qilish")
 async def sensor_qabul(m: SensorMalumot):

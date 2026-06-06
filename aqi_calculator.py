@@ -90,13 +90,6 @@ _NAMLIK_CHEGARASI  = 80.0
 _HARORAT_BONUS     = 25
 _NAMLIK_BONUS      = 15
 
-_MQ_ANALOG_BP = [
-    (   0,  799,   0,  50),
-    ( 800, 1599,  51, 100),
-    (1600, 2399, 101, 150),
-    (2400, 3199, 151, 200),
-    (3200, 4095, 201, 300),
-]
 
 def _epa_interpolatsiya(c: float, breakpoints: list) -> Optional[int]:
     for c_min, c_max, i_min, i_max in breakpoints:
@@ -130,11 +123,6 @@ def pm25_to_aqi(pm25: float) -> int:
             return round(aqi)
     return 500
 
-def mq_analog_to_aqi(analog: int) -> int:
-    analog = max(0, min(4095, int(analog)))
-    v = _epa_interpolatsiya(float(analog), _MQ_ANALOG_BP)
-    return v if v is not None else 300
-
 def _mq_aqi(
     mq135: Optional[int],
     mq2:   Optional[int],
@@ -158,17 +146,14 @@ def _mq_aqi(
     return int(min(aqi, 500))
 
 def hisobla_aqi(
-    mq135:    Optional[int]   = None,
-    mq2:      Optional[int]   = None,
-    mq7:      Optional[int]   = None,
-    harorat:  Optional[float] = None,
-    namlik:   Optional[float] = None,
-    bosim:    Optional[float] = None,
-    pm25:     Optional[float] = None,
-    pm10:     Optional[float] = None,
-    mq135_aq: Optional[int]   = None,
-    mq2_aq:   Optional[int]   = None,
-    mq7_aq:   Optional[int]   = None,
+    mq135:   Optional[int]   = None,
+    mq2:     Optional[int]   = None,
+    mq7:     Optional[int]   = None,
+    harorat: Optional[float] = None,
+    namlik:  Optional[float] = None,
+    bosim:   Optional[float] = None,
+    pm25:    Optional[float] = None,
+    pm10:    Optional[float] = None,
 ) -> int:
     pm_aqilar = []
     if pm25 is not None and pm25 >= 0:
@@ -180,15 +165,8 @@ def hisobla_aqi(
         if v is not None:
             pm_aqilar.append(v)
 
-    mq_analog_aqilar = []
-    for aq in (mq135_aq, mq2_aq, mq7_aq):
-        if aq is not None and aq >= 0:
-            mq_analog_aqilar.append(mq_analog_to_aqi(aq))
-
     if pm_aqilar:
         aqi = max(pm_aqilar)
-    elif mq_analog_aqilar:
-        aqi = max(mq_analog_aqilar)
     else:
         aqi = _mq_aqi(mq135, mq2, mq7, harorat, namlik)
 
@@ -318,9 +296,6 @@ def get_overall_aqi(m: dict) -> int:
         bosim=m.get("bosim"),
         pm25=m.get("pm25"),
         pm10=m.get("pm10"),
-        mq135_aq=m.get("mq135_aq"),
-        mq2_aq=m.get("mq2_aq"),
-        mq7_aq=m.get("mq7_aq"),
     )
 
 def get_aqi_category(aqi: int) -> dict:
