@@ -13,7 +13,7 @@
 const char* WIFI_SSID     = "esp32";       
 const char* WIFI_PASSWORD = "12123434";     
 
-const char* SERVER_URL    = "http://10.83.229.245:8000/api/sensor";
+const char* SERVER_URL    = "http://157.173.114.153/api/sensor";
 
 const char* DEVICE_ID     = "esp32_001";
 

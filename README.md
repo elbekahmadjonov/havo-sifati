@@ -53,6 +53,28 @@ diplom_server/
 
 ---
 
+## Server o'rnatish (Ubuntu 24.04)
+
+```bash
+# Repozitoriyani klonlash
+cd /var/www/havo-sifati
+
+# Virtual muhit yaratish va faollashtirish
+python3 -m venv venv
+source venv/bin/activate
+
+# Asosiy kutubxonalarni o'rnatish
+pip install -r requirements.txt
+
+# Serverni ishga tushirish
+uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+> **Nginx proxy sozlamasi:** server `157.173.114.153` da ishlaydi,
+> port 80 → 8000 yo'naltiriladi, shuning uchun ESP32 da port ko'rsatilmaydi.
+
+---
+
 ## 1-qadam: Python o'rnatish
 
 Python **3.10** yoki yangi versiya kerak.
