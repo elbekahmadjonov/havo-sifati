@@ -139,11 +139,10 @@
 
     
     <div class="card">
-      <div class="card-header">💚 Hozirgi Holat</div>
-      <div class="tavsiya-matn" id="tavsiya-matn" style="color:var(--kulrang);font-size:0.85rem;line-height:1.65">
-        Ma'lumot yuklanmoqda...
+      <div class="card-header">💚 Sog'liq Tavsiyalari</div>
+      <div id="tavsiya-list" style="display:flex;flex-direction:column;gap:0.45rem">
+        <div style="color:var(--kulrang);font-size:0.85rem">Ma'lumot yuklanmoqda...</div>
       </div>
-      <div id="sensorlar-holat" style="margin-top:0.65rem;font-size:0.81rem;line-height:1.7"></div>
     </div>
 
   </div>
@@ -422,19 +421,19 @@ function mqJadvalYangilaш(oxirgi) {
 const AQI_JADVAL = [
   { id:'aqi-r0', min:0,   max:50,  rang:'#00E400', emoji:'🟢', daraja:'Yaxshi',
     sogliq:'Havo toza — hech qanday xavf yo\'q',
-    tavsiya:'Tashqarida erkin faoliyat olib boring' },
+    tavsiya:"Tashqarida erkin sayr qilsa bo'ladi" },
   { id:'aqi-r1', min:51,  max:100, rang:'#f59e0b', emoji:'🟡', daraja:'O\'rtacha',
     sogliq:'Sezgir odamlar uchun yengil ta\'sir mumkin',
-    tavsiya:'Nafas kasalligi bo\'lganlar uzoq muddatli tashqi mashqni cheklaydi' },
+    tavsiya:"Nafas kasalligi bo'lganlar uzoq muddatli tashqaridagi faoliyatni cheklash kerak" },
   { id:'aqi-r2', min:101, max:150, rang:'#f97316', emoji:'🟠', daraja:'Sezgir guruh uchun zararli',
-    sogliq:'Bolalar, keksalar, astma va yurak kasallari ta\'sirlanadi',
-    tavsiya:'Sezgir guruh tashqi faoliyatni cheklaydi; qolganlar ehtiyot bo\'ladi' },
+    sogliq:"Bolalar, keksalar, astma va yurak kasallar uchun havf",
+    tavsiya:"Sezgir guruh tashqi faoliyatni cheklasin; qolganlar ehtiyot bo'lsin" },
   { id:'aqi-r3', min:151, max:200, rang:'#ef4444', emoji:'🔴', daraja:'Zararli',
     sogliq:'Barcha aholi sog\'liqqa salbiy ta\'sir sezishi mumkin',
     tavsiya:'Hamma tashqi faoliyatni kamaytirsin; sezgirlar ichkarida qolsin' },
   { id:'aqi-r4', min:201, max:300, rang:'#8b5cf6', emoji:'🟣', daraja:'Juda zararli',
-    sogliq:'Jiddiy sog\'liq xavfi — hamma ta\'sirlanadi',
-    tavsiya:'Tashqarida bo\'lmang; niqob majburiy; deraza yoping' },
+    sogliq:"Jiddiy sog'liq xavfi",
+    tavsiya:"Tashqarida chiqmang; niqob majburiy; derazani yoping" },
   { id:'aqi-r5', min:301, max:500, rang:'#7e0023', emoji:'⚫', daraja:'Xavfli',
     sogliq:'Favqulodda holat — butun aholi uchun xavfli',
     tavsiya:'Mutlaqo tashqarida bo\'lmang; zudlik bilan tibbiy yordam oling' },
@@ -513,9 +512,7 @@ async function aqiYanila() {
       document.getElementById('aqi-daraja').textContent         = "Noma'lum";
       document.getElementById('aqi-daraja').style.color         = '#64748b';
       document.getElementById('aqi-indicator').style.background = '#475569';
-      document.getElementById('tavsiya-matn').textContent       = "Qurilma bilan aloqa yo'q!";
-      document.getElementById('tavsiya-matn').style.color       = '#ef4444';
-      document.getElementById('sensorlar-holat').innerHTML      = '';
+      document.getElementById('tavsiya-list').innerHTML = '<div style="color:#ef4444;font-size:0.85rem">⚠️ Qurilma bilan aloqa yo\'q!</div>';
       document.getElementById('aqi-pm25-chip').style.display    = 'none';
 
       SENSORLAR.forEach(sensorKartaOffline);
@@ -541,9 +538,6 @@ async function aqiYanila() {
     document.getElementById('aqi-indicator').style.background = rang;
     aqiGaugeYangilaش(d.hozir, rang);
     aqiSatirYorit(d.hozir);
-    document.getElementById('tavsiya-matn').textContent       = d.tavsiya || '';
-    document.getElementById('tavsiya-matn').style.color       = 'var(--matn)';
-
     // PM2.5 chip — AQI PM2.5 asosida hisoblanganini ko'rsatish
     const pm25El = document.getElementById('aqi-pm25-chip');
     if (d.pm25 != null && d.pm25 >= 0) {
@@ -554,16 +548,20 @@ async function aqiYanila() {
       pm25El.style.display = 'none';
     }
 
-    const sensorlarEl = document.getElementById('sensorlar-holat');
-    if (Array.isArray(d.sensorlar) && d.sensorlar.length) {
-      const hammaToza = d.sensorlar.length === 1 && d.sensorlar[0].includes('normal');
-      sensorlarEl.innerHTML = d.sensorlar.map(x =>
-        `<div style="color:${hammaToza ? 'var(--yashil,#10b981)' : 'var(--qizil,#ef4444)'}">
-           ${hammaToza ? '✅' : '⚠️'} ${x}
+    const listEl = document.getElementById('tavsiya-list');
+    if (Array.isArray(d.tavsiyalar) && d.tavsiyalar.length) {
+      listEl.innerHTML = d.tavsiyalar.map(t =>
+        `<div style="display:flex;gap:0.6rem;align-items:flex-start;padding:0.4rem 0.65rem;
+             border-radius:8px;border-left:3px solid ${t.rang};background:${t.rang}14">
+           <span style="font-size:1rem;line-height:1.5;flex-shrink:0">${t.ikon}</span>
+           <div>
+             <div style="font-size:0.7rem;font-weight:700;color:${t.rang};text-transform:uppercase;letter-spacing:0.04em">${t.sarlavha}</div>
+             <div style="font-size:0.8rem;color:var(--matn);line-height:1.5;margin-top:0.07rem">${t.matn}</div>
+           </div>
          </div>`
       ).join('');
     } else {
-      sensorlarEl.innerHTML = '';
+      listEl.innerHTML = `<div style="color:var(--kulrang);font-size:0.85rem">Ma'lumot yuklanmadi</div>`;
     }
 
     console.log('AQI yangilandi:', d.hozir, d.daraja);

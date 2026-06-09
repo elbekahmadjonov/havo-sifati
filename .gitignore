@@ -216,3 +216,26 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Ma'lumotlar bazasi
+*.db
+*.sqlite
+*.sqlite3
+
+# Loglar
+logs/
+*.log
+
+# Maxfiy ma'lumotlar
+.env
+
+# VS Code
+.vscode/
+
+# Operatsion tizim
+.DS_Store
+Thumbs.db

@@ -25,7 +25,7 @@ _AQI_DARAJALARI = [
     (
         0, 50,
         "Yaxshi", "#00E400", "🟢",
-        "Havo toza. Tashqarida erkin faoliyat olib borishingiz mumkin.",
+        "Havo toza. Tashqarida erkin sayr qilish mumkin.",
         "Air quality is satisfactory. Outdoor activities are safe.",
     ),
     (
@@ -37,7 +37,7 @@ _AQI_DARAJALARI = [
     (
         101, 150,
         "Sezgir guruh uchun zararli", "#FF7E00", "🟠",
-        "Bolalar, keksalar va yurak/nafas kasalligi bor kishilar tashqari faoliyatini cheklaydi.",
+        "Bolalar, keksalar va yurak/nafas kasalligi bor kishilar tashqari faoliyatini cheklasin.",
         "Sensitive groups should reduce prolonged or heavy outdoor exertion.",
     ),
     (
@@ -49,7 +49,7 @@ _AQI_DARAJALARI = [
     (
         201, 300,
         "Juda zararli", "#8F3F97", "🟣",
-        "Sog'liq uchun favqulodda holat! Hamma tashqarida bo'lishini cheklashi kerak. Niqob kiyish tavsiya etiladi.",
+        "Sog'liq uchun favqulodda holat! Niqob kiyish tavsiya etiladi.",
         "Health alert: Everyone may experience serious health effects. Avoid outdoor activities.",
     ),
     (
@@ -249,6 +249,87 @@ def sensor_holati(
             xabarlar.append(_MQ_TAVSIF[kalit]["iflos"])
 
     return xabarlar if xabarlar else ["Barcha sensorlar normal — havo toza"]
+
+def tavsiyalar_royxat(
+    aqi:     int,
+    mq135:   Optional[int]   = None,
+    mq2:     Optional[int]   = None,
+    mq7:     Optional[int]   = None,
+    harorat: Optional[float] = None,
+    namlik:  Optional[float] = None,
+    bosim:   Optional[float] = None,
+    pm25:    Optional[float] = None,
+    pm10:    Optional[float] = None,
+) -> list[dict]:
+    info  = aqi_daraja(aqi)
+    items = []
+
+    items.append({
+        "tur": "aqi", "ikon": info["emoji"], "rang": info["rang"],
+        "sarlavha": f"AQI {aqi} — {info['daraja']}",
+        "matn": info["tavsiya_uz"],
+    })
+
+    if pm25 is not None and pm25 >= 0:
+        if pm25 > 150.4:
+            items.append({"tur": "pm", "ikon": "🔴", "rang": "#ef4444",
+                          "sarlavha": "PM2.5 juda yuqori",
+                          "matn": f"PM2.5 = {pm25:.1f} μg/m³ — niqob kiyish majburiy, tashqarida bo'lmang"})
+        elif pm25 > 55.4:
+            items.append({"tur": "pm", "ikon": "🟠", "rang": "#f97316",
+                          "sarlavha": "PM2.5 yuqori",
+                          "matn": f"PM2.5 = {pm25:.1f} μg/m³ — sezgir guruh tashqarida bo'lmasin"})
+        elif pm25 > 35.4:
+            items.append({"tur": "pm", "ikon": "🟡", "rang": "#f59e0b",
+                          "sarlavha": "PM2.5 ko'tarilgan",
+                          "matn": f"PM2.5 = {pm25:.1f} μg/m³ — uzoq muddatli mashqni cheklang"})
+
+    if pm10 is not None and pm10 >= 0 and pm10 > 154:
+        items.append({"tur": "pm10", "ikon": "🟠", "rang": "#f97316",
+                      "sarlavha": "PM10 yuqori",
+                      "matn": f"PM10 = {pm10:.1f} μg/m³ — chang zarrachalari miqdori oshgan"})
+
+    if harorat is not None:
+        if harorat > 38:
+            items.append({"tur": "harorat", "ikon": "🌡️", "rang": "#ef4444",
+                          "sarlavha": "Juda issiq",
+                          "matn": f"Harorat {harorat:.1f}°C — ko'p suv iching, soyada dam oling"})
+        elif harorat > 35:
+            items.append({"tur": "harorat", "ikon": "🌡️", "rang": "#f97316",
+                          "sarlavha": "Issiq",
+                          "matn": f"Harorat {harorat:.1f}°C — suyuqlik ko'proq iching"})
+        elif harorat < 5:
+            items.append({"tur": "harorat", "ikon": "❄️", "rang": "#60a5fa",
+                          "sarlavha": "Sovuq havo",
+                          "matn": f"Harorat {harorat:.1f}°C — iliq kiyining, nafas yo'llarini himoya qiling"})
+
+    if namlik is not None:
+        if namlik > 85:
+            items.append({"tur": "namlik", "ikon": "💧", "rang": "#f97316",
+                          "sarlavha": "Namlik juda yuqori",
+                          "matn": f"Namlik {namlik:.0f}% — o'pkaga og'irlik tushadi, faoliyatni cheklang"})
+        elif namlik < 20:
+            items.append({"tur": "namlik", "ikon": "🏜️", "rang": "#f59e0b",
+                          "sarlavha": "Havo quruq",
+                          "matn": f"Namlik {namlik:.0f}% — shilliq pardani himoya qilish uchun ko'proq suv iching"})
+
+    if bosim is not None:
+        if bosim < 990:
+            items.append({"tur": "bosim", "ikon": "⬇️", "rang": "#8b5cf6",
+                          "sarlavha": "Bosim past",
+                          "matn": f"Atmosfera bosimi {bosim:.0f} hPa — bosh og'riq bo'lishi mumkin"})
+        elif bosim > 1030:
+            items.append({"tur": "bosim", "ikon": "⬆️", "rang": "#10b981",
+                          "sarlavha": "Bosim yuqori",
+                          "matn": f"Atmosfera bosimi {bosim:.0f} hPa — havo barqaror"})
+
+    for kalit, qiymat in [("mq135", mq135), ("mq2", mq2), ("mq7", mq7)]:
+        if qiymat == 0:
+            items.append({"tur": "sensor", "ikon": "⚠️", "rang": "#ef4444",
+                          "sarlavha": "Gaz aniqlandi",
+                          "matn": _MQ_TAVSIF[kalit]["iflos"]})
+
+    return items
 
 def kunlik_statistika(measurements: list[dict]) -> dict:
     bo_sh = {

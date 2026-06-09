@@ -162,6 +162,18 @@ async def api_aqi():
         mq7=oxirgi.get("mq7"),
     )
 
+    tavsiyalar = aqi_calculator.tavsiyalar_royxat(
+        aqi,
+        mq135=oxirgi.get("mq135"),
+        mq2=oxirgi.get("mq2"),
+        mq7=oxirgi.get("mq7"),
+        harorat=oxirgi.get("harorat"),
+        namlik=oxirgi.get("namlik"),
+        bosim=oxirgi.get("bosim"),
+        pm25=oxirgi.get("pm25"),
+        pm10=oxirgi.get("pm10"),
+    )
+
     return {
         "hozir":           kat["aqi"],
         "daraja":          kat["daraja"],
@@ -174,6 +186,7 @@ async def api_aqi():
         "bosim":           oxirgi.get("bosim"),
         "pm25":            oxirgi.get("pm25"),
         "pm10":            oxirgi.get("pm10"),
+        "tavsiyalar":      tavsiyalar,
         "oxirgi_vaqt":     oxirgi.get("vaqt"),
         "qurilma_online":  True,
         "oxirgi_korinish": oxirgi_korinish,
