@@ -60,7 +60,7 @@ body {
   color: var(--kulrang);
   text-decoration: none;
   padding: 0.4rem 0.9rem;
-  border-radius: 8px;
+  border-radius: 7px;
   font-size: 0.9rem;
   font-weight: 500;
   transition: color 0.2s, background 0.2s;
@@ -77,7 +77,7 @@ body {
 .card {
   background: var(--karta);
   border-radius: 16px;
-  padding: 1.25rem;
+  padding: 1.25rem 1.1rem;
   border: 1px solid var(--chegara);
   transition: border-color 0.3s, box-shadow 0.3s;
 }
@@ -189,11 +189,12 @@ body {
 .sensor-qiymat {
   font-size: 1.4rem;
   font-weight: 800;
-  margin: 0.35rem 0 0.2rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.2rem;
 }
 
 .sensor-status {
-  font-size: 0.72rem;
+  font-size: 0.715rem;
   color: var(--kulrang);
 }
 
@@ -382,11 +383,12 @@ tbody td { padding: 0.6rem 0.9rem; }
 
 .lstm-karta {
   border: 2px solid rgba(59,130,246,0.35);
+  /* background: #1b2a4a; */
   background: linear-gradient(160deg, #1a2744 0%, #1e293b 100%);
   transition: border-color 0.4s, box-shadow 0.4s, background 0.3s;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 958px) {
   .grid-3 { grid-template-columns: 1fr 1fr; }
   .grid-3 > :last-child { grid-column: 1 / -1; }
 }
