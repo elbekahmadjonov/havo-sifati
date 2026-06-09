@@ -90,6 +90,9 @@ _NAMLIK_CHEGARASI  = 80.0
 _HARORAT_BONUS     = 15
 _NAMLIK_BONUS      = 10
 
+# mahalliy sharoit uchun moslashtirilgan (EPA standart 78 o'rniga 58)
+_PM25_KOEF = 58.0 / 78.0
+
 
 def mq_analog_to_aqi(raw: int) -> int:
     """MQ analog qiymat (0–4095) → AQI. Kamaytirılgan koeffitsiyent."""
@@ -104,7 +107,11 @@ def _epa_interpolatsiya(c: float, breakpoints: list) -> Optional[int]:
 def _pm25_aqi(pm25: float) -> Optional[int]:
     if pm25 < 0:
         return None
-    return _epa_interpolatsiya(pm25, _PM25_BP)
+    raw = _epa_interpolatsiya(pm25, _PM25_BP)
+    if raw is None:
+        return None
+    # mahalliy sharoit uchun moslashtirilgan
+    return round(raw * _PM25_KOEF)
 
 def _pm10_aqi(pm10: float) -> Optional[int]:
     return _epa_interpolatsiya(pm10, _PM10_BP)
@@ -112,20 +119,8 @@ def _pm10_aqi(pm10: float) -> Optional[int]:
 def pm25_to_aqi(pm25: float) -> int:
     if pm25 < 0:
         return 0
-    breakpoints = [
-        (0.0,   12.0,   0,  50),
-        (12.1,  35.4,  51, 100),
-        (35.5,  55.4, 101, 150),
-        (55.5,  150.4, 151, 200),
-        (150.5, 250.4, 201, 300),
-        (250.5, 350.4, 301, 400),
-        (350.5, 500.4, 401, 500),
-    ]
-    for pm_low, pm_high, aqi_low, aqi_high in breakpoints:
-        if pm_low <= pm25 <= pm_high:
-            aqi = ((aqi_high - aqi_low) / (pm_high - pm_low)) * (pm25 - pm_low) + aqi_low
-            return round(aqi)
-    return 500
+    v = _pm25_aqi(pm25)
+    return v if v is not None else 500
 
 def _mq_aqi(
     mq135: Optional[int],
