@@ -80,16 +80,20 @@ _MQ_TAVSIF = {
 
 _MQ_AQI_JADVAL = {
     0: 30,
-    1: 75,
-    2: 125,
-    3: 175,
+    1: 50,
+    2: 70,
+    3: 90,
 }
 
 _HARORAT_CHEGARASI = 35.0
 _NAMLIK_CHEGARASI  = 80.0
-_HARORAT_BONUS     = 25
-_NAMLIK_BONUS      = 15
+_HARORAT_BONUS     = 15
+_NAMLIK_BONUS      = 10
 
+
+def mq_analog_to_aqi(raw: int) -> int:
+    """MQ analog qiymat (0–4095) → AQI. Kamaytirılgan koeffitsiyent."""
+    return int(min(round(raw * 0.065), 500))
 
 def _epa_interpolatsiya(c: float, breakpoints: list) -> Optional[int]:
     for c_min, c_max, i_min, i_max in breakpoints:
@@ -167,12 +171,15 @@ def hisobla_aqi(
 
     if pm_aqilar:
         aqi = max(pm_aqilar)
+        # MQ faqat ogohlantirish bonusi (kalibrlangan emas, max +15)
+        iflos = sum(1 for v in [mq135, mq2, mq7] if v is not None and v == 0)
+        aqi += min(iflos * 5, 15)
     else:
         aqi = _mq_aqi(mq135, mq2, mq7, harorat, namlik)
 
     if bosim is not None:
         if bosim < 990.0:
-            aqi += 10
+            aqi += 5
         elif bosim > 1030.0:
             aqi -= 5
 
@@ -428,11 +435,11 @@ def testlar():
 
     print("\n3. MQ analog (0-4095) stsenariylari:")
     testlar_analog = [
-        ("MQ analog = 400  (toza fon)",    mq_analog_to_aqi(400),  "Yaxshi"),
-        ("MQ analog = 1000 (o'rtacha)",    mq_analog_to_aqi(1000), "O'rtacha"),
-        ("MQ analog = 2000 (sezgir)",      mq_analog_to_aqi(2000), "Sezgir guruh uchun zararli"),
-        ("MQ analog = 2800 (zararli)",     mq_analog_to_aqi(2800), "Zararli"),
-        ("MQ analog = 3500 (juda zarar)",  mq_analog_to_aqi(3500), "Juda zararli"),
+        ("MQ analog = 400  (toza fon)",   mq_analog_to_aqi(400),  "Yaxshi"),
+        ("MQ analog = 1000 (o'rtacha)",   mq_analog_to_aqi(1000), "O'rtacha"),
+        ("MQ analog = 2000 (sezgir)",     mq_analog_to_aqi(2000), "Sezgir guruh uchun zararli"),
+        ("MQ analog = 2800 (zararli)",    mq_analog_to_aqi(2800), "Zararli"),
+        ("MQ analog = 3500 (juda zarar)", mq_analog_to_aqi(3500), "Juda zararli"),
     ]
     for nomi, aqi, kutilgan in testlar_analog:
         info   = aqi_daraja(aqi)
@@ -440,10 +447,10 @@ def testlar():
         print(f"  {status} {nomi:<35} AQI={aqi:3d}  {info['emoji']} {info['daraja']}")
 
     print("\n4. Ustunlik zanjiri stsenariylari:")
-    print(f"  PM2.5=20 (ustun), MQ analog=3000  → AQI={hisobla_aqi(pm25=20.0, mq135_aq=3000)}"
-          "  (max qalinadi: PM→79, analog→194)")
-    print(f"  PM yo'q,  MQ analog=2000           → AQI={hisobla_aqi(mq135_aq=2000)}")
-    print(f"  Faqat DO (MQ-135 iflos)            → AQI={hisobla_aqi(mq135=0, mq2=1, mq7=1)}")
+    aqi_pm_mq = hisobla_aqi(pm25=20.0, mq135=0, mq2=1, mq7=1)
+    print(f"  PM2.5=20 + MQ-135 iflos            → AQI={aqi_pm_mq}  (PM ustun + +5 bonus)")
+    print(f"  PM yo'q,  1 sensor iflos            → AQI={hisobla_aqi(mq135=0, mq2=1, mq7=1)}")
+    print(f"  Faqat DO (MQ-135 iflos)             → AQI={hisobla_aqi(mq135=0, mq2=1, mq7=1)}")
 
     print("\n5. Aralash (MQ + PM2.5) stsenariy:")
     aqi_mix = hisobla_aqi(mq135=0, mq2=1, mq7=1, harorat=36.0, pm25=25.0)
