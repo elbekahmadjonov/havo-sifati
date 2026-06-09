@@ -32,8 +32,8 @@ const bool ENABLE_OLED   = true;
 const bool ENABLE_BMP280  = true;   
 const bool ENABLE_PMS5003 = true;   
 
-const int MQ135_PIN = 4;
-const int MQ2_PIN   = 5;
+const int MQ135_PIN = 5;
+const int MQ2_PIN   = 4;
 const int MQ7_PIN   = 19;
 const int DHT22_PIN = 23;
 
