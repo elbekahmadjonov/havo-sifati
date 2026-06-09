@@ -31,41 +31,7 @@
   </div>
 </nav>
 
-<div class="layout-wrapper">
-
-<aside class="sidebar">
-  <div class="sidebar-brand">🌬️ Havo Monitor</div>
-
-  <div class="sidebar-section-label">Navigatsiya</div>
-  <a href="/"        class="sidebar-link faol"><span class="sl-icon">📊</span> Dashboard</a>
-  <a href="/history" class="sidebar-link"><span class="sl-icon">📈</span> Tarix</a>
-  <a href="/about"   class="sidebar-link"><span class="sl-icon">ℹ️</span> Haqida</a>
-
-  <div class="sidebar-divider"></div>
-  <div class="sidebar-section-label">Sensorlar</div>
-
-  <div style="padding:0 0.4rem">
-    <div style="font-size:0.75rem;color:var(--kulrang);line-height:2">
-      🏭 MQ-135 &nbsp;<span id="sb-mq135" style="color:var(--kulrang)">—</span><br>
-      🔥 MQ-2 &nbsp;&nbsp;&nbsp;<span id="sb-mq2"   style="color:var(--kulrang)">—</span><br>
-      💨 MQ-7 &nbsp;&nbsp;&nbsp;<span id="sb-mq7"   style="color:var(--kulrang)">—</span><br>
-      🌡️ Harorat <span id="sb-haro"  style="color:var(--kulrang)">—</span><br>
-      💧 Namlik &nbsp;<span id="sb-namli" style="color:var(--kulrang)">—</span><br>
-      🌬️ Bosim &nbsp;&nbsp;<span id="sb-bosim" style="color:var(--kulrang)">—</span>
-    </div>
-  </div>
-
-  <div class="sidebar-bottom">
-    <div class="sidebar-info">
-      <span class="sidebar-status-dot" id="sb-dot"></span>
-      <span id="sb-holat">Yuklanmoqda</span><br>
-      v3.1 · 2025<br>
-      ESP32 + PMS5003
-    </div>
-  </div>
-</aside>
-
-<main class="main-content">
+<div class="container">
 
   
   <div id="xato-bar" class="alert-bar" style="display:none">
@@ -152,49 +118,6 @@
   <div class="sensor-grid" id="sensor-grid"></div>
 
   <div class="card" style="margin-bottom:1.5rem">
-    <div class="card-header">🧪 MQ Sensor — Gaz Holati</div>
-    <div class="jadval-konteyner">
-      <table>
-        <thead>
-          <tr>
-            <th>Sensor</th>
-            <th>Aniqlaydigan gazlar</th>
-            <th>Ulangan</th>
-            <th>Holat</th>
-            <th>DO signal</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>🏭 MQ-135</strong></td>
-            <td style="font-size:0.82rem">CO₂ · NH₃ · Benzol · Spirt · Alkogol</td>
-            <td id="mq135-ul">—</td>
-            <td id="mq135-hol">—</td>
-            <td id="mq135-xa">—</td>
-          </tr>
-          <tr>
-            <td><strong>🔥 MQ-2</strong></td>
-            <td style="font-size:0.82rem">Metan · LPG · Tutun · Propan · Vodorod</td>
-            <td id="mq2-ul">—</td>
-            <td id="mq2-hol">—</td>
-            <td id="mq2-xa">—</td>
-          </tr>
-          <tr>
-            <td><strong>💨 MQ-7</strong></td>
-            <td style="font-size:0.82rem">CO — Uglerod oksidi (eng xavfli!)</td>
-            <td id="mq7-ul">—</td>
-            <td id="mq7-hol">—</td>
-            <td id="mq7-xa">—</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div style="margin-top:0.6rem;font-size:0.72rem;color:var(--kulrang)">
-      DO = 1 → gaz chegaradan past (TOZA) &nbsp;|&nbsp; DO = 0 → gaz aniqlandi (GAZ!)
-    </div>
-  </div>
-
-  <div class="card" style="margin-bottom:1.5rem">
     <div class="card-header">📊 AQI Darajalari va Sog'liq Tavsiyalari</div>
     <div class="jadval-konteyner">
       <table id="aqi-tavsiya-jadval">
@@ -255,7 +178,6 @@
     <span id="status-online" class="online-badge kulrang">● Kutilmoqda</span>
   </div>
 
-</main>
 </div>
 
 <script src="/static/script.js"></script>
@@ -288,37 +210,6 @@ function aqiGaugeYangilaش(aqi, rang) {
   var fraction = Math.min(Math.max(aqi, 0) / maxVal, 1);
   arc.style.strokeDasharray = (circumference * fraction) + ' ' + circumference;
   arc.style.stroke = rang;
-}
-
-// ─── Sidebar sensor holati yangilash ───
-function sidebarYangilaش(oxirgi, online) {
-  var dot = document.getElementById('sb-dot');
-  var holat = document.getElementById('sb-holat');
-  if (dot) dot.style.background = online ? 'var(--yashil)' : 'var(--qizil)';
-  if (holat) holat.textContent = online ? 'Online' : 'Offline';
-
-  function sb(id, val, binary) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    if (val === null || val === undefined) {
-      el.textContent = '—'; el.style.color = 'var(--kulrang)';
-    } else if (binary) {
-      el.textContent = val === 1 ? '✓' : '!';
-      el.style.color = val === 1 ? 'var(--yashil)' : 'var(--qizil)';
-    } else {
-      el.textContent = parseFloat(val).toFixed(1);
-      el.style.color = 'var(--matn)';
-    }
-  }
-
-  if (oxirgi) {
-    sb('sb-mq135', oxirgi.mq135, true);
-    sb('sb-mq2',   oxirgi.mq2,   true);
-    sb('sb-mq7',   oxirgi.mq7,   true);
-    sb('sb-haro',  oxirgi.harorat, false);
-    sb('sb-namli', oxirgi.namlik,  false);
-    sb('sb-bosim', oxirgi.bosim,   false);
-  }
 }
 
 const SENSORLAR = [
@@ -389,34 +280,6 @@ function sensorKartaYangilaш(s, qiymat) {
     karta.classList.add('toza');
     stEl.textContent    = 'Ishlaydi';
   }
-}
-
-function mqJadvalYangilaш(oxirgi) {
-  const sensors = [
-    { id:'mq135', nom:'MQ-135' },
-    { id:'mq2',   nom:'MQ-2'   },
-    { id:'mq7',   nom:'MQ-7'   },
-  ];
-  sensors.forEach(s => {
-    const val   = oxirgi?.[s.id];
-    const ulEl  = document.getElementById(`${s.id}-ul`);
-    const holEl = document.getElementById(`${s.id}-hol`);
-    const xaEl  = document.getElementById(`${s.id}-xa`);
-    if (!ulEl) return;
-    if (val === null || val === undefined) {
-      ulEl.innerHTML  = '<span class="chip kulrang">━ Ulanmagan</span>';
-      holEl.textContent = '—';
-      xaEl.textContent  = '—';
-    } else if (val === 1) {
-      ulEl.innerHTML  = '<span class="chip yashil">✔ Ulangan</span>';
-      holEl.innerHTML = '<span style="color:var(--yashil);font-weight:700">TOZA</span>';
-      xaEl.innerHTML  = '<span class="chip yashil">DO = 1</span>';
-    } else {
-      ulEl.innerHTML  = '<span class="chip yashil">✔ Ulangan</span>';
-      holEl.innerHTML = '<span style="color:var(--qizil);font-weight:700">⚠ GAZ!</span>';
-      xaEl.innerHTML  = '<span class="chip qizil puls">DO = 0</span>';
-    }
-  });
 }
 
 const AQI_JADVAL = [
@@ -748,11 +611,8 @@ async function hammaNiBoshqaYangilaш() {
     const offline   = !oxVaqt || (Date.now() - new Date(oxVaqt).getTime() > 30 * 1000);
     if (offline) {
       SENSORLAR.forEach(sensorKartaOffline);
-      sidebarYangilaش(null, false);
     } else {
       SENSORLAR.forEach(s => sensorKartaYangilaш(s, data.oxirgi?.[s.id]));
-      mqJadvalYangilaш(data.oxirgi);
-      sidebarYangilaش(data.oxirgi, true);
     }
     grafikYangilaш(data.grafik);
 
