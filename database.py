@@ -52,7 +52,7 @@ def db_yaratish():
             )
         """)
         conn.commit()
-    log.info("✅ Ma'lumotlar bazasi tayyor: %s", DB_FAYL)
+    log.info("db tayyor: %s", DB_FAYL)
 
 def malumot_saqlash(data: dict) -> int:
     vaqt = datetime.now(TOSHKENT_TZ).isoformat()
@@ -143,7 +143,7 @@ def eski_malumot_tozalash():
         cur = conn.execute("DELETE FROM measurements WHERE vaqt < ?", (chegara,))
         conn.commit()
         if cur.rowcount:
-            log.info("🧹 %d ta eski yozuv o'chirildi.", cur.rowcount)
+            log.info("%d ta eski yozuv ochirildi.", cur.rowcount)
 
 def ogohlantirish_saqlash(sensor_nomi: str, qiymat: str, xabar: str):
     vaqt = datetime.now(TOSHKENT_TZ).isoformat()

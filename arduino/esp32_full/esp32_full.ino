@@ -100,7 +100,7 @@ const char* holat_aniqlash(const SensorData& d) {
 }
 
 void wifi_ga_ulan() {
-  Serial.print("\n📡 Wi-Fi ga ulanilmoqda: ");
+  Serial.print("\nWi-Fi: ");
   Serial.println(WIFI_SSID);
 
   if (ENABLE_OLED) {
@@ -138,8 +138,8 @@ void wifi_ga_ulan() {
       oled.display();
     }
 
-    if (++urinish >= 40) {   
-      Serial.println("\n⚠️  20s kutildi, qayta urinilmoqda...");
+    if (++urinish >= 40) {
+      Serial.println("\n20s kutildi, qayta urinilmoqda...");
       WiFi.disconnect();
       delay(2000);
       WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -149,10 +149,9 @@ void wifi_ga_ulan() {
 
   wifi_ulangan = true;
   Serial.println();
-  Serial.println("✅ Wi-Fi ga ulandi!");
-  Serial.print("   📍 IP manzili  : "); Serial.println(WiFi.localIP());
-  Serial.print("   📶 Signal kuchi : "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
-  Serial.print("   🌐 Gateway      : "); Serial.println(WiFi.gatewayIP());
+  Serial.println("Wi-Fi ulandi");
+  Serial.print("   IP: "); Serial.println(WiFi.localIP());
+  Serial.print("   Signal: "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
 
   if (ENABLE_OLED) {
     oled.clearDisplay();
@@ -166,7 +165,7 @@ void wifi_ga_ulan() {
 }
 
 bool wifi_urinib_kor() {
-  Serial.print("\n📡 Wi-Fi ga ulanilmoqda: ");
+  Serial.print("\nWi-Fi: ");
   Serial.println(WIFI_SSID);
 
   if (ENABLE_OLED) {
@@ -187,8 +186,8 @@ bool wifi_urinib_kor() {
     if (WiFi.status() == WL_CONNECTED) {
       wifi_ulangan = true;
       Serial.println();
-      Serial.println("✅ Wi-Fi ga ulandi!");
-      Serial.print("   📍 IP: "); Serial.println(WiFi.localIP());
+      Serial.println("Wi-Fi ulandi");
+      Serial.print("   IP: "); Serial.println(WiFi.localIP());
 
       if (ENABLE_OLED) {
         oled.clearDisplay();
@@ -206,8 +205,7 @@ bool wifi_urinib_kor() {
   wifi_ulangan = false;
   WiFi.disconnect();
   Serial.println();
-  Serial.println("⚠️  WiFi yo'q — oflayn rejimda davom etiladi");
-  Serial.println("   (Sensorlar o'qiladi, server ga yuborilmaydi)");
+  Serial.println("WiFi yo'q, oflayn rejim");
 
   if (ENABLE_OLED) {
     oled.clearDisplay();
@@ -270,12 +268,12 @@ SensorData sensorlar_oqi() {
     if (!isnan(t)) {
       d.harorat = t;
     } else {
-      Serial.println("⚠️  DHT22 harorat o'qilmadi — null yuboriladi");
+      Serial.println("DHT22 harorat xato");
     }
     if (!isnan(h)) {
       d.namlik = h;
     } else {
-      Serial.println("⚠️  DHT22 namlik o'qilmadi — null yuboriladi");
+      Serial.println("DHT22 namlik xato");
     }
   }
 
@@ -286,7 +284,7 @@ SensorData sensorlar_oqi() {
     if (bosim_pa > 0 && !isnan(bosim_pa)) {
       d.bosim = bosim_pa / 100.0F;
     } else {
-      Serial.println("⚠️  BMP280 bosim o'qilmadi — null yuboriladi");
+      Serial.println("BMP280 xato");
     }
   }
 
@@ -324,7 +322,7 @@ SensorData sensorlar_oqi() {
 bool serverga_yubor(const SensorData& d) {
   if (WiFi.status() != WL_CONNECTED) {
     wifi_ulangan = false;
-    Serial.println("📵 Wi-Fi yo'q — yuborilmaydi, sensorlar o'qishda davom etadi");
+    Serial.println("WiFi yo'q, yuborilmaydi");
     return false;
   }
 
@@ -359,11 +357,7 @@ bool serverga_yubor(const SensorData& d) {
   String json;
   serializeJson(doc, json);
 
-  Serial.print("📤 Yuborilmoqda → ");
-  Serial.println(SERVER_URL);
-  Serial.print("   Kalit: "); Serial.println(json);
-  Serial.print("   WiFi IP : "); Serial.println(WiFi.localIP());
-  Serial.print("   RSSI    : "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
+  Serial.print("-> "); Serial.println(SERVER_URL);
 
   HTTPClient http;
   http.begin(SERVER_URL);
@@ -374,10 +368,7 @@ bool serverga_yubor(const SensorData& d) {
 
   if (kod == HTTP_CODE_OK || kod == HTTP_CODE_CREATED) {
     String javob = http.getString();
-    Serial.print("✅ Server javobi (HTTP ");
-    Serial.print(kod);
-    Serial.print("): ");
-    Serial.println(javob);
+    Serial.print("ok HTTP "); Serial.println(kod);
     http.end();
 
     yuborish_soni++;
@@ -388,13 +379,9 @@ bool serverga_yubor(const SensorData& d) {
     return true;
 
   } else if (kod > 0) {
-    Serial.print("⚠️  HTTP xato kodi: "); Serial.println(kod);
-    Serial.print("   Server javobi : "); Serial.println(http.getString());
-    Serial.println("   SERVER_URL ni tekshiring: " + String(SERVER_URL));
+    Serial.print("HTTP xato: "); Serial.println(kod);
   } else {
-    Serial.print("❌ Ulanish xatosi ("); Serial.print(kod); Serial.print("): ");
-    Serial.println(http.errorToString(kod));
-    Serial.println("   Server ishlamayapti yoki IP noto'g'ri: " + String(SERVER_URL));
+    Serial.print("ulanish xatosi: "); Serial.println(http.errorToString(kod));
   }
 
   http.end();
@@ -404,60 +391,35 @@ bool serverga_yubor(const SensorData& d) {
 }
 
 void serial_log(const SensorData& d) {
-  Serial.println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  Serial.print("📊 O'lchov #");
-  Serial.print(yuborish_soni + 1);
-  Serial.print("  |  Ishlash vaqti: ");
-  Serial.print(millis() / 1000);
-  Serial.println("s");
-  Serial.println("──────────────────────────────────────────────");
+  Serial.print("\n--- #"); Serial.print(yuborish_soni + 1);
+  Serial.print("  "); Serial.print(millis() / 1000); Serial.println("s ---");
 
-  
-  if (ENABLE_MQ135) {
-    Serial.print("🏭 MQ-135 : ");
-    Serial.println(d.mq135 == 1 ? "TOZA" : "GAZ!");
-  }
-  if (ENABLE_MQ2) {
-    Serial.print("🔥 MQ-2   : ");
-    Serial.println(d.mq2 == 1 ? "TOZA" : "GAZ!");
-  }
-  if (ENABLE_MQ7) {
-    Serial.print("💨 MQ-7   : ");
-    Serial.println(d.mq7 == 1 ? "TOZA" : "GAZ!");
-  }
+  if (ENABLE_MQ135) { Serial.print("MQ-135: "); Serial.println(d.mq135 == 1 ? "toza" : "GAZ!"); }
+  if (ENABLE_MQ2)   { Serial.print("MQ-2:   "); Serial.println(d.mq2   == 1 ? "toza" : "GAZ!"); }
+  if (ENABLE_MQ7)   { Serial.print("MQ-7:   "); Serial.println(d.mq7   == 1 ? "toza" : "GAZ!"); }
 
-  Serial.println("──────────────────────────────────────────────");
-
-  
   if (ENABLE_DHT22) {
-    Serial.print("🌡️  Harorat  : ");
-    if (!isnan(d.harorat)) { Serial.print(d.harorat, 1); Serial.println(" °C"); }
-    else                    Serial.println("❌ null (DHT22 xato)");
-
-    Serial.print("💧 Namlik   : ");
-    if (!isnan(d.namlik))  { Serial.print(d.namlik, 1); Serial.println(" %"); }
-    else                    Serial.println("❌ null (DHT22 xato)");
+    Serial.print("Harorat: ");
+    if (!isnan(d.harorat)) { Serial.print(d.harorat, 1); Serial.println(" C"); }
+    else                    Serial.println("xato");
+    Serial.print("Namlik:  ");
+    if (!isnan(d.namlik))  { Serial.print(d.namlik, 1);  Serial.println(" %"); }
+    else                    Serial.println("xato");
   }
 
-  
   if (!isnan(d.bosim)) {
-    Serial.print("🌬️  Bosim    : "); Serial.print(d.bosim, 1); Serial.println(" hPa");
+    Serial.print("Bosim:   "); Serial.print(d.bosim, 1); Serial.println(" hPa");
   }
-
-  
   if (!isnan(d.pm25)) {
-    Serial.print("🔴 PM2.5    : "); Serial.print(d.pm25, 1); Serial.println(" μg/m³");
-    Serial.print("🟠 PM10     : "); Serial.print(d.pm10, 1); Serial.println(" μg/m³");
+    Serial.print("PM2.5:   "); Serial.print(d.pm25, 1); Serial.println(" ug/m3");
+    Serial.print("PM10:    "); Serial.print(d.pm10, 1); Serial.println(" ug/m3");
   }
 
-  Serial.println("──────────────────────────────────────────────");
-  Serial.print("📶 Wi-Fi    : "); Serial.println(wifi_ulangan   ? "✅ Ulangan" : "❌ Uzilgan");
-  Serial.print("🖥️  Server   : "); Serial.println(server_ulangan ? "✅ Javob berdi" : "❌ Ulangan emas");
-  Serial.print("📈 Statistik: ");
-  Serial.print(yuborish_soni); Serial.print(" muvaffaqiyat | ");
-  Serial.print(xato_soni);     Serial.println(" ketma-ket xato");
-  Serial.print("🏷️  Holat    : "); Serial.println(holat_aniqlash(d));
-  Serial.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+  Serial.print("WiFi:    "); Serial.println(wifi_ulangan   ? "ok" : "yo'q");
+  Serial.print("Server:  "); Serial.println(server_ulangan ? "ok" : "yo'q");
+  Serial.print("Holat:   "); Serial.println(holat_aniqlash(d));
+  Serial.print(yuborish_soni); Serial.print(" ok | ");
+  Serial.print(xato_soni); Serial.println(" xato\n");
 }
 
 void oled_sahifa1(const SensorData& d) {
@@ -676,22 +638,17 @@ void setup() {
   delay(500);
 
   
-  Serial.println("\n╔════════════════════════════════════════════════╗");
-  Serial.println("║   Havo Sifati Monitoringi — ESP32 v3.0        ║");
-  Serial.println("║   Diplom loyihasi, 2025-2026                   ║");
-  Serial.println("╠════════════════════════════════════════════════╣");
-  Serial.println("║   MQ-135 DO:GPIO4  | MQ-2 DO:GPIO5  | MQ-7:GPIO19 ║");
-  Serial.println("║   DHT22: GPIO23  | OLED SDA=21,SCL=22 (0x3C)  ║");
-  Serial.println("║   BMP280 (0x76)  | PMS5003 UART2 RX=16,TX=17  ║");
-  Serial.println("╚════════════════════════════════════════════════╝\n");
+  Serial.println("\n--- Havo Sifati Monitoringi v3.0 ---");
+  Serial.println("MQ-135:GPIO5, MQ-2:GPIO4, MQ-7:GPIO19");
+  Serial.println("DHT22:GPIO23, BMP280:0x76, PMS5003 RX=16 TX=17\n");
 
   
   if (ENABLE_OLED) {
     Wire.begin(21, 22);   
     if (!oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
-      Serial.println("❌ OLED topilmadi! I2C manzilni tekshiring (0x3C yoki 0x3D)");
+      Serial.println("OLED topilmadi");
     } else {
-      Serial.println("✅ OLED ishga tushdi (128x64, I2C 0x3C)");
+      Serial.println("OLED ok");
       oled.clearDisplay();
       oled.setTextSize(1);
       oled.setTextColor(SSD1306_WHITE);
@@ -707,40 +664,23 @@ void setup() {
   }
 
   
-  Serial.println("⚙️  Sensorlar sozlanmoqda...");
+  Serial.println("Sensorlar...");
 
-  
-  if (ENABLE_MQ135) {
-    pinMode(MQ135_PIN, INPUT_PULLUP);
-    Serial.println("   ✅ MQ-135 — GPIO 4  (CO₂/NH₃/Benzol, INPUT_PULLUP)");
-  }
-  if (ENABLE_MQ2) {
-    pinMode(MQ2_PIN, INPUT_PULLUP);
-    Serial.println("   ✅ MQ-2   — GPIO 5  (Metan/LPG/Tutun, INPUT_PULLUP)");
-  }
-  if (ENABLE_MQ7) {
-    pinMode(MQ7_PIN, INPUT_PULLUP);
-    Serial.println("   ✅ MQ-7   — GPIO 19 (Uglerod oksidi, INPUT_PULLUP)");
-  }
-  if (ENABLE_DHT22) {
-    dht.begin();
-    Serial.println("   ✅ DHT22  — GPIO 23 (Harorat/Namlik)");
-  }
+  if (ENABLE_MQ135) { pinMode(MQ135_PIN, INPUT_PULLUP); Serial.println("   MQ-135 ok"); }
+  if (ENABLE_MQ2)   { pinMode(MQ2_PIN,   INPUT_PULLUP); Serial.println("   MQ-2 ok");   }
+  if (ENABLE_MQ7)   { pinMode(MQ7_PIN,   INPUT_PULLUP); Serial.println("   MQ-7 ok");   }
+  if (ENABLE_DHT22) { dht.begin();                      Serial.println("   DHT22 ok");  }
 
-  
   if (ENABLE_PMS5003) {
     pmsSerial.begin(9600, SERIAL_8N1, PMS5003_RX, PMS5003_TX);
-    Serial.println("   PMS5003 -- UART2 RX=16, TX=17 (30s isinish kerak)");
+    Serial.println("   PMS5003 ok (30s isinish)");
   }
 
-  
   if (ENABLE_BMP280) {
     if (bmp.begin(BMP280_ADDRESS)) {
-      Serial.println("   ✅ BMP280 — I2C 0x76 (Bosim sensori, hPa)");
+      Serial.println("   BMP280 ok");
     } else {
-      
-      Serial.println("   ⚠️  BMP280 topilmadi! SDA=21, SCL=22, manzil 0x76 tekshiring");
-      Serial.println("       Tizim davom etadi — bosim null bo'ladi");
+      Serial.println("   BMP280 topilmadi, bosim null");
     }
   }
   
@@ -752,11 +692,9 @@ void setup() {
   wifi_urinib_kor();
 
   
-  Serial.println("\n📋 Konfiguratsiya:");
-  Serial.print("   🌐 Server     : "); Serial.println(SERVER_URL);
-  Serial.print("   📟 Qurilma ID : "); Serial.println(DEVICE_ID);
-  Serial.print("   ⏱️  Interval   : "); Serial.print(YUBORISH_INTERVALI / 1000); Serial.println(" sekund");
-  Serial.println("\n✨ Qurilma tayyor! Sensorlar o'qilmoqda...\n");
+  Serial.print("\nServer: "); Serial.println(SERVER_URL);
+  Serial.print("Interval: "); Serial.print(YUBORISH_INTERVALI / 1000); Serial.println("s");
+  Serial.println("Tayyor.\n");
 
   
   oxirgi_yuborish   = millis() - YUBORISH_INTERVALI;
@@ -780,15 +718,11 @@ void loop() {
     
     if (WiFi.status() == WL_CONNECTED) {
       bool natija = serverga_yubor(joriy_data);
-      if (natija) {
-        Serial.print("⏳ Keyingi o'lchov ");
-        Serial.print(YUBORISH_INTERVALI / 1000);
-        Serial.println(" sekunddan so'ng\n");
-      } else {
-        Serial.println("⚠️  Yuborishda muammo — keyingi urinishda qayta yuboriladi\n");
+      if (!natija) {
+        Serial.println("yuborishda xato\n");
       }
     } else {
-      Serial.println("📵 WiFi yo'q — ma'lumot faqat OLED va Serial ga chiqarildi\n");
+      Serial.println("WiFi yo'q\n");
     }
   }
 
@@ -798,7 +732,7 @@ void loop() {
       
       wifi_ulangan = false;
       server_ulangan = false;
-      Serial.println("⚠️  Wi-Fi uzildi!");
+      Serial.println("Wi-Fi uzildi");
       oxirgi_qayta_ulan = hozir - QAYTA_ULANISH_MS;  
     }
     

@@ -12,15 +12,15 @@ try:
     _lstm_faol     = _lstm_bashorat.model is not None
 
     if _lstm_faol:
-        log.info("🤖 LSTM bashorat modeli faol (ml/models/lstm_model.keras)")
+        log.info("LSTM model faol")
     else:
-        log.info("⚠️  LSTM model topilmadi — statistik rejim. "
-                 "O'rgatish uchun: python ml/train_model.py")
+        log.info("LSTM model topilmadi, statistik rejim. "
+                 "O'rgatish: python ml/train_model.py")
 
 except ImportError:
-    log.info("ℹ️  ml.predictor topilmadi — statistik rejim faol.")
+    log.info("ml.predictor topilmadi, statistik rejim.")
 except Exception as exc:
-    log.warning("⚠️  ML modul xatosi (%s) — statistik rejim faol.", exc)
+    log.warning("ML xato (%s), statistik rejim.", exc)
 
 class HavoSifatBashorati:
 
@@ -28,7 +28,7 @@ class HavoSifatBashorati:
         self._ml   = _lstm_bashorat
         self._faol = _lstm_faol
         rejim = "LSTM neyron tarmog'i" if self._faol else "Statistik (zaxira)"
-        log.info("🤖 Bashorat rejimi: %s", rejim)
+        log.info("bashorat rejimi: %s", rejim)
 
     def predict_next_hour(self, oxirgi_olchovlar: list[dict]) -> dict:
         if self._faol and len(oxirgi_olchovlar) >= 5:

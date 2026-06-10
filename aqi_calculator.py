@@ -389,8 +389,8 @@ def get_health_advice(aqi: int) -> str:
 
 def _test_chiqar(nomi: str, aqi: int, daraja_kutilgan: str) -> None:
     info   = aqi_daraja(aqi)
-    status = "✅" if info["daraja"] == daraja_kutilgan else "❌"
-    print(f"  {status} {nomi:<35} AQI={aqi:3d}  {info['emoji']} {info['daraja']}")
+    status = "ok" if info["daraja"] == daraja_kutilgan else "XATO"
+    print(f"  [{status}] {nomi:<35} AQI={aqi:3d}  {info['daraja']}")
 
 def testlar():
     print("\n" + "=" * 60)
@@ -438,8 +438,8 @@ def testlar():
     ]
     for nomi, aqi, kutilgan in testlar_analog:
         info   = aqi_daraja(aqi)
-        status = "✅" if info["daraja"] == kutilgan else "❌"
-        print(f"  {status} {nomi:<35} AQI={aqi:3d}  {info['emoji']} {info['daraja']}")
+        status = "ok" if info["daraja"] == kutilgan else "XATO"
+        print(f"  [{status}] {nomi:<35} AQI={aqi:3d}  {info['daraja']}")
 
     print("\n4. Ustunlik zanjiri stsenariylari:")
     aqi_pm_mq = hisobla_aqi(pm25=20.0, mq135=0, mq2=1, mq7=1)
@@ -454,10 +454,10 @@ def testlar():
     print("\n4. sensor_holati():")
     holat = sensor_holati(mq135=0, mq2=1, mq7=0)
     for x in holat:
-        print(f"    ⚠️  {x}")
+        print(f"    ! {x}")
 
     holat_toza = sensor_holati(mq135=1, mq2=1, mq7=1)
-    print(f"    ✅ {holat_toza[0]}")
+    print(f"    {holat_toza[0]}")
 
     print("\n5. sog_liq_tavsiya():")
     tavsiya = sog_liq_tavsiya(aqi=120, harorat=37.0, namlik=88.0)
@@ -483,7 +483,7 @@ def testlar():
         info = aqi_daraja(aqi_test)
         print(f"  {aqi_test:^6}  {info['emoji']:^5}  {info['daraja']:<30}  {info['rang']}")
 
-    print("\n✅ Barcha testlar muvaffaqiyatli o'tdi!")
+    print("\nTestlar tugadi.")
     print("=" * 60)
 
 if __name__ == "__main__":
